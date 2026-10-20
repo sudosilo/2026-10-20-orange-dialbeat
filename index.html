@@ -55,6 +55,7 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 <h1>Dial Queue</h1>
 <button id="play" class="go">Play</button>
 <button id="rec">Rec</button>
+<label>Bounce <select id="blen"><option value="15">15s</option><option value="30" selected>30s</option><option value="60">60s</option></select></label><button id="bounce">Bounce</button>
 <label>BPM <input id="bpm" type="number" min="40" max="300"></label>
 <label>Step <select id="div"><option value="1">1/4</option><option value="2">1/8</option><option value="4">1/16</option></select></label>
 <label>Preset <select id="pre"></select></label>
@@ -166,12 +167,12 @@ function laneValue(l,p,N){const f=FX[l.fx];let v;
  return clamp(v,f)}
 function params(seg){const o={};for(const k in FX)o[k]=FX[k].def;for(const l of seg.lanes)o[l.fx]=laneValue(l,seg.pos,seg.notches);return o}
 
-let ac=null,master=null,noise=null,conv=null,recNode=null,recording=false,recL=[],recR=[],recStart=0;
+let OFF=false,recSrc=null,recZ=null,ac=null,master=null,noise=null,conv=null,recNode=null,recording=false,recL=[],recR=[],recStart=0;
 function makeIR(){const sr=ac.sampleRate,len=Math.floor(sr*.6),b=ac.createBuffer(2,len,sr);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3)*.5;[.007,.013,.021,.029].forEach((x,j)=>{const k=Math.floor(x*sr*(1+c*.07));if(k<len)d[k]+=.6/(j+1)})}return b}
 function initAudio(){if(ac)return;ac=new(window.AudioContext||window.webkitAudioContext)();master=ac.createGain();master.gain.value=.7;const comp=ac.createDynamicsCompressor();master.connect(comp);comp.connect(ac.destination);
  const len=ac.sampleRate;noise=ac.createBuffer(1,len,ac.sampleRate);const d=noise.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
  conv=ac.createConvolver();conv.buffer=makeIR();conv.connect(master);
- recNode=ac.createScriptProcessor(4096,2,2);comp.connect(recNode);const z=ac.createGain();z.gain.value=0;recNode.connect(z);z.connect(ac.destination);
+ recNode=ac.createScriptProcessor(4096,2,2);recSrc=comp;recZ=ac.createGain();recZ.gain.value=0;recZ.connect(ac.destination);
  recNode.onaudioprocess=e=>{if(!recording)return;const b=e.inputBuffer;recL.push(new Float32Array(b.getChannelData(0)));recR.push(new Float32Array(b.numberOfChannels>1?b.getChannelData(1):b.getChannelData(0)))}}
 function env(g,t,peak,dec){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+.002);g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(.01,dec))}
 function nz(t,dur){const s=ac.createBufferSource();s.buffer=noise;s.start(t);s.stop(t+dur);return s}
@@ -207,17 +208,18 @@ function cut(gn,v,at){gn.gain.setValueAtTime(v,Math.max(0,at-.003));gn.gain.line
 const lastGroup=[];
 function trigger(seg,t,P,r){if(seg.sound==='none')return;if(Math.random()*100>=P.chance)return;
  const rw=S.rows[r],span=Math.round(P.span)*stepDur();
- const pre=ac.createGain(),chk=ac.createGain();pre.connect(chk);let node=chk;
+ const pre=ac.createGain(),chk=ac.createGain();pre.connect(chk);let node=chk;const ns=[pre,chk];
  if(rw.choke){const lg=lastGroup[r];if(lg&&lg.t<t)cut(lg.g,1,t);lastGroup[r]={g:chk,t}}
- if(P.drive>0){const ws=ac.createWaveShaper(),k=P.drive*2,c=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;c[i]=(1+k)*x/(1+k*Math.abs(x))}ws.curve=c;node.connect(ws);node=ws}
- const flt=ac.createBiquadFilter();flt.type='lowpass';flt.frequency.value=80*Math.pow(18000/80,P.filter/100);flt.Q.value=P.reso;node.connect(flt);
- const tr=ac.createGain(),dep=P.tremolo/100;tr.gain.value=1-dep/2;flt.connect(tr);
+ if(P.drive>0){const ws=ac.createWaveShaper(),k=P.drive*2,c=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;c[i]=(1+k)*x/(1+k*Math.abs(x))}ws.curve=c;node.connect(ws);node=ws;ns.push(ws)}
+ const flt=ac.createBiquadFilter();flt.type='lowpass';flt.frequency.value=80*Math.pow(18000/80,P.filter/100);flt.Q.value=P.reso;node.connect(flt);ns.push(flt);
+ const tr=ac.createGain(),dep=P.tremolo/100;tr.gain.value=1-dep/2;flt.connect(tr);ns.push(tr);
  if(dep>0){const lfo=ac.createOscillator();lfo.frequency.value=P.tremrate;const lg=ac.createGain();lg.gain.value=dep/2;lfo.connect(lg);lg.connect(tr.gain);lfo.start(t);lfo.stop(t+span+2)}
- const vol=ac.createGain();vol.gain.value=P.volume/100;tr.connect(vol);let last=vol;
- if(ac.createStereoPanner){const pan=ac.createStereoPanner();pan.pan.value=P.pan/100;vol.connect(pan);last=pan}
+ const vol=ac.createGain();vol.gain.value=P.volume/100;tr.connect(vol);let last=vol;ns.push(vol);
+ if(ac.createStereoPanner){const pan=ac.createStereoPanner();pan.pan.value=P.pan/100;vol.connect(pan);last=pan;ns.push(pan)}
  last.connect(master);
- if(P.room>0){const rs=ac.createGain();rs.gain.value=P.room/100;last.connect(rs);rs.connect(conv)}
- if(P.echo>0){const send=ac.createGain();send.gain.value=P.echo/100;const dl=ac.createDelay(4);dl.delayTime.value=.75*60/S.bpm;const fb=ac.createGain();fb.gain.value=.45;last.connect(send);send.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(master);setTimeout(()=>{try{fb.disconnect();dl.disconnect();send.disconnect()}catch(e){}},(t-ac.currentTime+span)*1000+6000)}
+ if(P.room>0){const rs=ac.createGain();rs.gain.value=P.room/100;last.connect(rs);rs.connect(conv);ns.push(rs)}
+ if(P.echo>0){const send=ac.createGain();send.gain.value=P.echo/100;const dl=ac.createDelay(4);dl.delayTime.value=.75*60/S.bpm;const fb=ac.createGain();fb.gain.value=.45;last.connect(send);send.connect(dl);dl.connect(fb);fb.connect(dl);dl.connect(master);ns.push(send,dl,fb)}
+ if(!OFF){const tail=span+(P.decay/100)*3.5+(P.echo>0?6:0)+(P.room>0?1:0)+(P.tremolo>0?2:0)+.5;setTimeout(()=>{ns.forEach(x=>{try{x.disconnect()}catch(e){}})},(t-ac.currentTime+tail)*1000)}
  const n=Math.round(P.ratchet),rr=1-P.accel/100,w=[];let sum=0;for(let k=0;k<n;k++){const x=Math.pow(rr,k);w.push(x);sum+=x}
  const offs=[0];for(let k=1;k<n;k++)offs.push(offs[k-1]+w[k-1]/sum*span);
  for(let k=0;k<n;k++){const v=Math.pow(1-P.fall/100,k),hg=ac.createGain();hg.gain.value=v;
@@ -227,14 +229,16 @@ function trigger(seg,t,P,r){if(seg.sound==='none')return;if(Math.random()*100>=P
 
 let playing=false,nextT=0,G=0,timer=null,hits=[];
 function stepDur(){return 60/S.bpm/S.div}
-function tick(){while(nextT<ac.currentTime+.12){S.rows.forEach((rw,r)=>{const seg=rw.segs[G%rw.len],P=params(seg);if(!rw.mute)trigger(seg,nextT,P,r);seg.pos=((seg.pos+Math.round(P.advance))%seg.notches+seg.notches)%seg.notches});hits.push({g:G,t:nextT});G++;nextT+=stepDur()}}
-function start(){initAudio();ac.resume();nextT=ac.currentTime+.06;G=0;hits=[];lastGroup.length=0;timer=setInterval(tick,25);playing=true;playB.textContent='Stop'}
+function stepAt(t,g){S.rows.forEach((rw,r)=>{const seg=rw.segs[g%rw.len],P=params(seg);if(!rw.mute)trigger(seg,t,P,r);seg.pos=((seg.pos+Math.round(P.advance))%seg.notches+seg.notches)%seg.notches})}
+function tick(){while(nextT<ac.currentTime+.2){stepAt(nextT,G);hits.push({g:G,t:nextT});G++;nextT+=stepDur()}}
+function start(){initAudio();ac.resume();nextT=ac.currentTime+.06;G=0;hits=[];lastGroup.length=0;timer=setInterval(tick,40);playing=true;playB.textContent='Stop'}
 function stop(){clearInterval(timer);playing=false;playB.textContent='Play';save()}
-function saveWav(){const n=recL.reduce((a,b)=>a+b.length,0);if(!n)return;const sr=ac.sampleRate,buf=new ArrayBuffer(44+n*4),v=new DataView(buf);let p=0;
+function saveWav(){wavOut(recL,recR,ac.sampleRate);recL=[];recR=[]}
+function wavOut(recL,recR,sr){const n=recL.reduce((a,b)=>a+b.length,0);if(!n)return;const buf=new ArrayBuffer(44+n*4),v=new DataView(buf);let p=0;
  const ws=s=>{for(let i=0;i<s.length;i++)v.setUint8(p++,s.charCodeAt(i))},u32=x=>{v.setUint32(p,x,true);p+=4},u16=x=>{v.setUint16(p,x,true);p+=2};
  ws('RIFF');u32(36+n*4);ws('WAVE');ws('fmt ');u32(16);u16(1);u16(2);u32(sr);u32(sr*4);u16(4);u16(16);ws('data');u32(n*4);
  for(let c=0;c<recL.length;c++){const A=recL[c],B=recR[c];for(let i=0;i<A.length;i++){v.setInt16(p,Math.max(-1,Math.min(1,A[i]))*32767,true);p+=2;v.setInt16(p,Math.max(-1,Math.min(1,B[i]))*32767,true);p+=2}}
- const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));a.download='dialqueue-'+new Date().toISOString().replace(/[:.]/g,'-')+'.wav';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000);recL=[];recR=[]}
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));a.download='dialqueue-'+new Date().toISOString().replace(/[:.]/g,'-')+'.wav';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},3000)}
 
 const Q=document.getElementById('queue'),E=document.getElementById('ed'),playB=document.getElementById('play'),recB=document.getElementById('rec');
 let sel={r:0,i:0};
@@ -285,7 +289,14 @@ E.addEventListener('click',e=>{const t=e.target,s=cur(),rw=S.rows[sel.r];
  else if(t.dataset.k==='del'){s.lanes.splice(+t.closest('.lane').dataset.l,1);refreshAll()}});
 document.getElementById('addrow').onclick=()=>{if(S.rows.length<MAXROWS){S.rows.push(row({}));sel={r:S.rows.length-1,i:0};refreshAll()}};
 playB.onclick=()=>playing?stop():start();
-recB.onclick=()=>{initAudio();ac.resume();if(!recording){recL=[];recR=[];recording=true;recStart=Date.now();recB.classList.add('rec');if(!playing)start()}else{recording=false;recB.classList.remove('rec');recB.textContent='Rec';saveWav()}};
+recB.onclick=()=>{initAudio();ac.resume();if(!recording){recL=[];recR=[];recSrc.connect(recNode);recNode.connect(recZ);recording=true;recStart=Date.now();recB.classList.add('rec');if(!playing)start()}else{recording=false;try{recSrc.disconnect(recNode);recNode.disconnect()}catch(e){}recB.classList.remove('rec');recB.textContent='Rec';saveWav()}};
+const bnB=document.getElementById('bounce');
+bnB.onclick=async()=>{if(bnB.disabled)return;initAudio();if(playing)stop();const secs=+document.getElementById('blen').value,keep=JSON.stringify(S),live={ac,master,conv};bnB.disabled=true;bnB.textContent='Rendering...';
+ try{const sr=live.ac.sampleRate,oc=new OfflineAudioContext(2,Math.ceil(sr*(secs+4)),sr);ac=oc;OFF=true;master=oc.createGain();master.gain.value=.7;const comp=oc.createDynamicsCompressor();master.connect(comp);comp.connect(oc.destination);conv=oc.createConvolver();conv.buffer=makeIR();conv.connect(master);lastGroup.length=0;
+  const sd=stepDur();let g=0;for(let t=.05;t<secs;t+=sd){stepAt(t,g);g++}
+  const buf=await oc.startRendering();wavOut([buf.getChannelData(0)],[buf.getChannelData(1)],sr)}
+ catch(e){alert('Bounce failed: '+e.message)}
+ ac=live.ac;master=live.master;conv=live.conv;OFF=false;lastGroup.length=0;S=JSON.parse(keep);bnB.disabled=false;bnB.textContent='Bounce';renderQueue();renderEd()};
 const bpmI=document.getElementById('bpm'),divI=document.getElementById('div'),preI=document.getElementById('pre');
 preI.innerHTML='<option value="">Custom</option>'+Object.keys(PRESETS).map(k=>`<option value="${k}">${k}</option>`).join('');
 preI.value=S.preset||'';
@@ -295,17 +306,17 @@ bpmI.oninput=()=>{const v=parseInt(bpmI.value);if(v>=40&&v<=300){S.bpm=v;save()}
 divI.onchange=()=>{S.div=+divI.value;save()};
 document.getElementById('rst').onclick=()=>{S.rows.forEach(rw=>rw.segs.forEach(s=>s.pos=0));save()};
 document.getElementById('clr').onclick=()=>{S.rows=[row({})];S.preset='';preI.value='';sel={r:0,i:0};refreshAll()};
-function setWheel(svg,seg){if(!svg)return;const ind=svg.querySelector('.ind'),lbl=svg.querySelector('.lbl'),c=svg.viewBox.baseVal.width/2;ind.setAttribute('transform',`rotate(${seg.pos/seg.notches*360} ${c} ${c})`);lbl.textContent=`${seg.pos+1}/${seg.notches}`}
+function setWheel(svg,seg){if(!svg)return;const key=seg.pos+'/'+seg.notches;if(svg._k===key)return;svg._k=key;const ind=svg.querySelector('.ind'),lbl=svg.querySelector('.lbl'),c=svg.viewBox.baseVal.width/2;ind.setAttribute('transform',`rotate(${seg.pos/seg.notches*360} ${c} ${c})`);lbl.textContent=`${seg.pos+1}/${seg.notches}`}
 function frame(){let h=null,fr=0,now=0;
  if(playing&&ac){now=ac.currentTime;while(hits.length>1&&hits[1].t<=now)hits.shift();if(hits[0]&&hits[0].t<=now){h=hits[0];fr=Math.min(1,(now-h.t)/stepDur())}}
  Q.querySelectorAll('.qrow').forEach(q=>{const r=+q.dataset.r,rw=S.rows[r];if(!rw)return;const st=h?h.g%rw.len:-1;if(h)q.querySelector('.head').style.left=`calc(${(st+fr)/rw.len*100}% - 1px)`;
-  q.querySelectorAll('.blk').forEach(b=>{const i=+b.dataset.i,s=rw.segs[i];setWheel(b.querySelector('svg'),s);b.classList.toggle('hit',h&&i===st&&now-h.t<.09&&!rw.mute&&s.sound!=='none')})});
+  q.querySelectorAll('.blk').forEach(b=>{const i=+b.dataset.i,s=rw.segs[i];setWheel(b.querySelector('svg'),s);const on=!!(h&&i===st&&now-h.t<.09&&!rw.mute&&s.sound!=='none');if(b._on!==on){b._on=on;b.classList.toggle('hit',on)}})});
  const s=cur();setWheel(document.querySelector('#bw svg'),s);
- E.querySelectorAll('.lane').forEach(ln=>{const l=s.lanes[+ln.dataset.l];if(l)ln.querySelector('.now').textContent=`now ${Math.round(laneValue(l,s.pos,s.notches))}${FX[l.fx].u}`});
+ E.querySelectorAll('.lane').forEach(ln=>{const l=s.lanes[+ln.dataset.l];if(l){const tx=`now ${Math.round(laneValue(l,s.pos,s.notches))}${FX[l.fx].u}`,el=ln.querySelector('.now');if(el.textContent!==tx)el.textContent=tx}});
  if(recording)recB.textContent=`Stop rec ${Math.floor((Date.now()-recStart)/1000)}s`;
  requestAnimationFrame(frame)}
 const INFO={
-top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
+top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','Bounce builds the pattern offline, faster than it plays, and saves a WAV file of the length you pick. It never stutters, even on the heaviest patterns. The wheels go back to where they were afterward.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
 rows:['Rows',['Each row is a line of blocks with its own red line. All rows play at the same time.','A row can be 1 to 16 blocks long. Rows of different lengths drift apart and line up again later, which keeps the pattern changing.','The wheel in each block shows its current notch out of its total. The color shows which sound is in the block.','Tap any block to edit it below. Add row adds up to 6 rows.','The colored bar on the left of each row shows its instrument family. Tap it to load a row preset: pick a family across the top, then a pattern. Only that row changes.']],
 block:['Block and row settings',['Notches sets how many positions the wheel has, from 1 to 360.','Each time the red line crosses the block, it plays at the current notch, then the wheel turns. It turns 1 notch unless an advance assignment says otherwise.','Notch back, Notch forward and To notch 1 move the wheel by hand.','Row length, Choke, Mute row and Remove row change the whole row. Choke makes each new hit in the row stop the one before it, which sharpens the gaps.']],
 assign:['Assignments',['Each assignment ties one setting to the wheel. A block can have as many as you want.','Step list cycles your values one per notch, like 10,20,30,40. Ramp moves from From to To across all the notches. Up and down climbs then falls. Smooth wave follows a curve. Random repeat picks values that repeat every cycle. Follow wheel reads another block\'s wheel position, so one wheel steers another.','Echo, room, tremolo, filter and drive run 0 to 100. Room is a short reverb. Spread scatters each repeat across left and right. Tremrate is 1 to 30 Hz. Reso is 0 to 30. Pitch is -24 to 24 semitones. Volume is 0 to 150. Pan is -100 to 100. Decay is 10 to 400.','Tone sets how bright struck materials ring. Gate cuts each hit after that many milliseconds. Chance is the odds the block plays at all. Advance sets how many notches the wheel turns per pass, and 0 freezes it.','Ratchet repeats a hit up to 16 times inside the span, measured in steps. Accel above 0 squeezes the repeats together like a bouncing ball, and below 0 spreads them out. Fall lowers each repeat. Rpitch shifts each repeat in semitones.']],
