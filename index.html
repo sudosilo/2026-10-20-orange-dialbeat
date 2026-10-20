@@ -24,8 +24,9 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 .head{position:absolute;top:0;bottom:0;width:3px;background:var(--red);left:0;pointer-events:none;z-index:2}
 .blk{border-right:1px solid var(--acc);padding:6px 1px;text-align:center;cursor:pointer;min-width:0}
 .blk:last-of-type{border-right:0}
-.blk.sel{background:var(--sel)}
-.blk.hit{background:var(--hit)}
+.blk.sel{box-shadow:inset 0 0 0 3px var(--accd)}
+.blk.hit{background:var(--hit)!important}
+.blk.none svg{opacity:.45}
 .blk svg{width:100%;max-width:60px;height:auto;display:block;margin:0 auto}
 .blk .nm{font-size:10px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #rowbar{display:flex;gap:8px;margin-top:14px}
@@ -36,7 +37,14 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 .lane input.vals{flex:1;min-width:140px}
 .lane .now{font-size:12px;color:var(--accd);min-width:64px}
 #bw svg{width:220px;max-width:100%;display:block;margin:0 auto 10px}
-.hint{font-size:12px;color:var(--mute);line-height:1.5;margin:10px 0 0}
+.info{width:30px;height:30px;padding:0;border-radius:50%;font-weight:700;color:var(--accd);border-color:var(--acc);font-size:15px;line-height:1}
+.sechead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:var(--mute)}
+#infobox{position:fixed;inset:0;background:rgba(34,32,29,.35);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+#infobox[hidden]{display:none}
+.ibody{background:var(--card);width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:14px 14px 0 0;padding:18px 16px 24px;font-size:15px;line-height:1.55}
+.ibody p{margin:0 0 12px}
+.ibody .ttl{display:block;margin-bottom:10px;color:var(--accd)}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin:0 4px 0 10px;vertical-align:-1px}
 </style>
 </head>
 <body>
@@ -49,17 +57,21 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 <label>Preset <select id="pre"></select></label>
 <button id="rst">Reset wheels</button>
 <button id="clr">Clear</button>
+<button class="info" data-topic="top">i</button>
 </header>
 <main>
+<div class="sechead"><span>Rows</span><button class="info" data-topic="rows">i</button></div>
 <div id="queue"></div>
 <div id="rowbar"><button id="addrow">Add row</button></div>
 <div id="ed"></div>
 </main>
+<div id="infobox" hidden><div class="ibody"><div id="itxt"></div><button id="iclose" class="go">Close</button></div></div>
 <script>
 const FX={echo:{min:0,max:100,def:0,u:'%'},room:{min:0,max:100,def:0,u:'%'},spread:{min:0,max:100,def:0,u:'%'},tremolo:{min:0,max:100,def:0,u:'%'},tremrate:{min:1,max:30,def:8,u:'Hz'},filter:{min:0,max:100,def:100,u:'%'},reso:{min:0,max:30,def:1,u:'Q'},pitch:{min:-24,max:24,def:0,u:'st'},volume:{min:0,max:150,def:100,u:'%'},pan:{min:-100,max:100,def:0,u:''},drive:{min:0,max:100,def:0,u:'%'},decay:{min:10,max:400,def:100,u:'%'},tone:{min:0,max:100,def:50,u:''},gate:{min:0,max:1000,def:0,u:'ms'},chance:{min:0,max:100,def:100,u:'%'},advance:{min:0,max:64,def:1,u:''},ratchet:{min:1,max:16,def:1,u:'x'},span:{min:1,max:16,def:1,u:' steps'},accel:{min:-90,max:90,def:0,u:''},fall:{min:0,max:90,def:0,u:'%'},rpitch:{min:-12,max:12,def:0,u:'st'}};
 const SOUNDS=['kick','snare','hat','openhat','clap','tom','rim','cowbell','bass','zap','ping','steel','glass','wood','ceramic','ball','pin','none'];
 const MODES={list:'Step list',ramp:'Ramp',tri:'Up and down',sine:'Smooth wave',rand:'Random repeat',follow:'Follow wheel'};
 const MAT={steel:{f:440,r:[1,2.76,5.40,8.93,13.34],a:[1,.6,.4,.25,.15],d:[1.8,1.2,.8,.5,.3],c:6000},glass:{f:880,r:[1,2.32,4.25,6.63,9.38],a:[1,.5,.35,.2,.12],d:[1.1,.7,.45,.3,.2],c:9000},wood:{f:220,r:[1,2.57,4.21,6.22],a:[1,.35,.15,.08],d:[.22,.11,.06,.04],c:2500},ceramic:{f:660,r:[1,1.59,2.14,2.65,3.16],a:[1,.7,.5,.35,.2],d:[.6,.45,.3,.22,.15],c:5000},ball:{f:2200,r:[1,1.52,2.31,3.4],a:[1,.6,.4,.2],d:[.12,.09,.06,.04],c:5000},pin:{f:1760,r:[1,2.76,5.40],a:[1,.3,.15],d:[2,.9,.4],c:8000}};
+const COL={kick:'#e8590c',snare:'#d6336c',hat:'#f59f00',openhat:'#e0a800',clap:'#c2255c',tom:'#a0522d',rim:'#8d6e63',cowbell:'#b08800',bass:'#7048e8',zap:'#12b886',ping:'#1c7ed6',steel:'#5f6b76',glass:'#0ea5b7',wood:'#8b5a2b',ceramic:'#e64980',ball:'#4c6ef5',pin:'#339af0',none:'#cfc4b8'};
 const MAXROWS=6,MAXLEN=16;
 function L(fx,mode,a,b){return mode==='list'?{fx,mode,vals:a,from:FX[fx].min,to:FX[fx].max,sr:0,sb:0}:{fx,mode,vals:'',from:a,to:b,sr:0,sb:0}}
 function F(fx,sr,sb,a,b){return{fx,mode:'follow',vals:'',from:a,to:b,sr,sb}}
@@ -70,7 +82,7 @@ function dnbRows(){return[
  row({4:sg('snare',1,[L('room','list','15')]),7:sg('snare',4,[L('volume','list','0,35,0,55'),L('decay','list','60')])}),
  row({0:sg('hat',1,[L('volume','list','80')]),1:sg('hat',2,[L('volume','list','30,50'),L('pan','list','-40,40')]),2:sg('hat',1,[L('volume','list','80')]),3:sg('hat',3,[L('volume','list','30,45,60'),L('ratchet','list','1,1,2')]),4:sg('hat',1,[L('volume','list','70')]),5:sg('hat',2,[L('volume','list','35,50')]),6:sg('openhat',2,[L('volume','list','60,40'),L('decay','list','80,140')]),7:sg('hat',4,[L('volume','list','40'),L('ratchet','list','1,1,1,3'),L('accel','list','40')])},8,true),
  row({0:sg('bass',4,[L('pitch','list','0,0,3,-2'),L('decay','list','160'),L('filter','list','55')]),3:sg('bass',2,[L('pitch','list','-5,7'),L('volume','list','70'),L('decay','list','70'),L('filter','list','50')])})]}
-const PRESETS={
+const PRESETS0={
  'Boom bop':()=>({bpm:110,div:2,rows:[row({0:sg('kick',4,[L('echo','list','10,20,30,40')]),1:sg('kick'),2:sg('snare',8,[L('tremolo','tri',0,80)]),3:sg('kick'),4:sg('kick'),5:sg('kick'),6:sg('kick'),7:sg('kick')})]}),
  'Breakneck':()=>({bpm:174,div:4,rows:dnbRows()}),
  'Steel ball':()=>({bpm:100,div:2,rows:[
@@ -92,6 +104,7 @@ const PRESETS={
   row({0:sg('ceramic',7,[L('pitch','list','0,3,7,10,12,7,3'),L('advance','list','1,2'),L('volume','list','60'),L('room','list','30')]),2:sg('wood',5,[F('pitch',0,4,-12,0),L('volume','list','70')]),6:sg('wood',1,[L('pitch','list','-12')])}),
   row({0:sg('kick',1,[L('volume','list','70')])})]}),
  'Prism':()=>{const r=dnbRows();r.push(row({0:sg('ball',8,[L('ratchet','ramp',4,16),L('span','list','8'),L('accel','list','20'),L('fall','list','10'),L('rpitch','list','0,0,1,-1'),L('volume','list','70'),L('echo','list','20'),L('room','list','25'),L('spread','list','40')]),6:sg('pin',4,[L('volume','list','0,0,0,80'),L('pitch','list','12,7'),L('echo','list','60'),L('room','list','40'),L('ratchet','list','3'),L('accel','list','60'),L('fall','list','40'),L('span','list','2')])}));return{bpm:174,div:4,rows:r}}};
+const PRESETS={};for(const k in PRESETS0)PRESETS[k]=()=>Object.assign(PRESETS0[k](),{preset:k});
 let S=null;try{S=JSON.parse(localStorage.getItem('dialqueue3'))}catch(e){}
 if(!S||!S.rows||!S.rows.length)S=PRESETS['Prism']();
 function save(){try{localStorage.setItem('dialqueue3',JSON.stringify(S))}catch(e){}}
@@ -170,19 +183,19 @@ function saveWav(){const n=recL.reduce((a,b)=>a+b.length,0);if(!n)return;const s
 const Q=document.getElementById('queue'),E=document.getElementById('ed'),playB=document.getElementById('play'),recB=document.getElementById('rec');
 let sel={r:0,i:0};
 function fixSel(){if(sel.r>=S.rows.length)sel.r=S.rows.length-1;if(sel.r<0)sel.r=0;const len=S.rows[sel.r].len;if(sel.i>=len)sel.i=len-1}
-function wheelSVG(seg,big){const N=seg.notches,size=big?220:64,r=big?96:26,c=size/2;let s=`<svg viewBox="0 0 ${size} ${size}"><circle cx="${c}" cy="${c}" r="${r}" fill="#fff" stroke="#f07a1a" stroke-width="${big?3:2}"/>`;
- if(big||N<=36){for(let k=0;k<N;k++){const a=k/N*2*Math.PI-Math.PI/2,r1=r-(big?10:4);s+=`<line x1="${(c+Math.cos(a)*r1).toFixed(1)}" y1="${(c+Math.sin(a)*r1).toFixed(1)}" x2="${(c+Math.cos(a)*r).toFixed(1)}" y2="${(c+Math.sin(a)*r).toFixed(1)}" stroke="#c9b8a6" stroke-width="1"/>`}}
+function wheelSVG(seg,big){const N=seg.notches,size=big?220:64,r=big?96:26,c=size/2,col=COL[seg.sound]||COL.none;let s=`<svg viewBox="0 0 ${size} ${size}"><circle cx="${c}" cy="${c}" r="${r}" fill="${col}1f" stroke="${col}" stroke-width="${big?4:3}"/>`;
+ if(big||N<=36){for(let k=0;k<N;k++){const a=k/N*2*Math.PI-Math.PI/2,r1=r-(big?10:4);s+=`<line x1="${(c+Math.cos(a)*r1).toFixed(1)}" y1="${(c+Math.sin(a)*r1).toFixed(1)}" x2="${(c+Math.cos(a)*r).toFixed(1)}" y2="${(c+Math.sin(a)*r).toFixed(1)}" stroke="${col}" stroke-opacity=".55" stroke-width="1"/>`}}
  s+=`<line class="ind" x1="${c}" y1="${c}" x2="${c}" y2="${c-r+3}" stroke="#22201d" stroke-width="${big?4:3}" stroke-linecap="round" transform="rotate(${seg.pos/N*360} ${c} ${c})"/>`;
  s+=`<text class="lbl" x="${c}" y="${c+(big?44:20)}" text-anchor="middle" font-size="${big?18:10}" fill="#776f66">${seg.pos+1}/${N}</text></svg>`;return s}
-function renderQueue(){Q.innerHTML=S.rows.map((rw,r)=>`<div class="qrow${rw.mute?' muted':''}" data-r="${r}" style="grid-template-columns:repeat(${rw.len},1fr)"><div class="head"></div>${rw.segs.slice(0,rw.len).map((s,i)=>`<div class="blk${r===sel.r&&i===sel.i?' sel':''}" data-r="${r}" data-i="${i}">${wheelSVG(s,false)}<div class="nm">${i+1} ${s.sound}</div></div>`).join('')}</div>`).join('');document.getElementById('addrow').disabled=S.rows.length>=MAXROWS}
+function renderQueue(){Q.innerHTML=S.rows.map((rw,r)=>`<div class="qrow${rw.mute?' muted':''}" data-r="${r}" style="grid-template-columns:repeat(${rw.len},1fr)"><div class="head"></div>${rw.segs.slice(0,rw.len).map((s,i)=>`<div class="blk${r===sel.r&&i===sel.i?' sel':''}${s.sound==='none'?' none':''}" data-r="${r}" data-i="${i}" style="background:${(COL[s.sound]||COL.none)}12">${wheelSVG(s,false)}<div class="nm" style="color:${s.sound==='none'?'var(--mute)':COL[s.sound]}">${i+1} ${s.sound}</div></div>`).join('')}</div>`).join('');document.getElementById('addrow').disabled=S.rows.length>=MAXROWS}
 function opts(list,cur){return list.map(([v,t])=>`<option value="${v}"${v===cur?' selected':''}>${t}</option>`).join('')}
 function srcList(){const o=[];S.rows.forEach((rw,r)=>{for(let i=0;i<rw.len;i++)o.push([`${r}:${i}`,`Row ${r+1} Block ${i+1}`])});return o}
 function laneInputs(l){if(l.mode==='list')return`<input class="vals" data-k="vals" placeholder="10,20,30,40" value="${l.vals}">`;
  let h='';if(l.mode==='follow')h+=`<select data-k="src">${opts(srcList(),`${l.sr}:${l.sb}`)}</select>`;
  return h+`<label>From <input type="number" data-k="from" value="${l.from}"></label><label>To <input type="number" data-k="to" value="${l.to}"></label>`}
 function renderEd(){fixSel();const rw=S.rows[sel.r],s=rw.segs[sel.i];
- E.innerHTML=`<div class="row"><span class="ttl">Row ${sel.r+1} Block ${sel.i+1}</span>
- <label>Sound <select id="snd">${opts(SOUNDS.map(x=>[x,x]),s.sound)}</select></label>
+ E.innerHTML=`<div class="row"><span class="ttl">Row ${sel.r+1} Block ${sel.i+1}</span><button class="info" data-topic="block">i</button>
+ <label>Sound <select id="snd" style="border-color:${COL[s.sound]};color:${COL[s.sound]}">${opts(SOUNDS.map(x=>[x,x]),s.sound)}</select></label><button class="info" data-topic="sounds">i</button>
  <label>Notches <input id="nn" type="number" min="1" max="360" value="${s.notches}"></label></div>
  <div class="row"><label>Row length <input id="rlen" type="number" min="1" max="${MAXLEN}" value="${rw.len}"></label>
  <button id="choke">${rw.choke?'Choke on':'Choke off'}</button><button id="mute">${rw.mute?'Unmute row':'Mute row'}</button><button id="delrow"${S.rows.length<2?' disabled':''}>Remove row</button></div>
@@ -192,13 +205,12 @@ function renderEd(){fixSel();const rw=S.rows[sel.r],s=rw.segs[sel.i];
  <select data-k="fx">${opts(Object.keys(FX).map(x=>[x,x]),l.fx)}</select>
  <select data-k="mode">${opts(Object.entries(MODES),l.mode)}</select>
  ${laneInputs(l)}<span class="now"></span><button data-k="del">Remove</button></div>`).join('')}</div>
- <button id="add">Add assignment</button>
- <p class="hint">Each time a row's red line crosses a block, the block plays at its current notch, then the wheel turns by its advance amount, 1 notch unless an advance assignment says otherwise. Rows can be 1 to 16 blocks long, so rows of different lengths drift against each other. A step list cycles its values one per notch. Ramp, up and down, smooth wave and random repeat spread From to To across the notches. Follow wheel reads another block's wheel position instead, so one wheel can steer another. Steel, glass, wood, ceramic, ball and pin are struck materials, and tone sets how bright they ring. Gate cuts each hit off after that many milliseconds. Choke makes each new hit in a row stop the one before it. Chance is the odds a block plays at all. Room sends to a short reverb, and spread scatters each repeat across the stereo field. Ratchet repeats a hit up to 16 times inside the span, measured in steps. Accel above 0 squeezes the repeats together like a bouncing ball. Fall lowers each repeat, and rpitch shifts each repeat in semitones. Rec captures everything you hear and saves a WAV file when you stop it.</p>`}
+ <div class="row"><button id="add">Add assignment</button><button class="info" data-topic="assign">i</button></div>`}
 function refreshAll(){renderQueue();renderEd();save()}
 Q.addEventListener('click',e=>{const b=e.target.closest('.blk');if(b){sel={r:+b.dataset.r,i:+b.dataset.i};renderQueue();renderEd()}});
 function cur(){fixSel();return S.rows[sel.r].segs[sel.i]}
 function edit(e){const t=e.target,s=cur(),rw=S.rows[sel.r];
- if(t.id==='snd'){s.sound=t.value;renderQueue();save();return}
+ if(t.id==='snd'){s.sound=t.value;renderQueue();renderEd();save();return}
  if(t.id==='nn'){const n=Math.max(1,Math.min(360,parseInt(t.value)||1));s.notches=n;s.pos%=n;document.getElementById('bw').innerHTML=wheelSVG(s,true);renderQueue();save();return}
  if(t.id==='rlen'){const n=parseInt(t.value);if(n>=1&&n<=MAXLEN){rw.len=n;if(sel.i>=n)sel.i=n-1;renderQueue();save()}return}
  const ln=t.closest('.lane');if(!ln)return;const l=s.lanes[+ln.dataset.l],k=t.dataset.k;
@@ -218,13 +230,14 @@ document.getElementById('addrow').onclick=()=>{if(S.rows.length<MAXROWS){S.rows.
 playB.onclick=()=>playing?stop():start();
 recB.onclick=()=>{initAudio();ac.resume();if(!recording){recL=[];recR=[];recording=true;recStart=Date.now();recB.classList.add('rec');if(!playing)start()}else{recording=false;recB.classList.remove('rec');recB.textContent='Rec';saveWav()}};
 const bpmI=document.getElementById('bpm'),divI=document.getElementById('div'),preI=document.getElementById('pre');
-preI.innerHTML='<option value="">Load...</option>'+Object.keys(PRESETS).map(k=>`<option value="${k}">${k}</option>`).join('');
-preI.onchange=()=>{if(!preI.value)return;S=PRESETS[preI.value]();bpmI.value=S.bpm;divI.value=S.div;sel={r:0,i:0};preI.value='';lastGroup.length=0;refreshAll()};
+preI.innerHTML='<option value="">Custom</option>'+Object.keys(PRESETS).map(k=>`<option value="${k}">${k}</option>`).join('');
+preI.value=S.preset||'';
+preI.onchange=()=>{if(!preI.value){preI.value=S.preset||'';return}S=PRESETS[preI.value]();bpmI.value=S.bpm;divI.value=S.div;sel={r:0,i:0};lastGroup.length=0;refreshAll()};
 bpmI.value=S.bpm;divI.value=S.div;
 bpmI.oninput=()=>{const v=parseInt(bpmI.value);if(v>=40&&v<=300){S.bpm=v;save()}};
 divI.onchange=()=>{S.div=+divI.value;save()};
 document.getElementById('rst').onclick=()=>{S.rows.forEach(rw=>rw.segs.forEach(s=>s.pos=0));save()};
-document.getElementById('clr').onclick=()=>{S.rows=[row({})];sel={r:0,i:0};refreshAll()};
+document.getElementById('clr').onclick=()=>{S.rows=[row({})];S.preset='';preI.value='';sel={r:0,i:0};refreshAll()};
 function setWheel(svg,seg){if(!svg)return;const ind=svg.querySelector('.ind'),lbl=svg.querySelector('.lbl'),c=svg.viewBox.baseVal.width/2;ind.setAttribute('transform',`rotate(${seg.pos/seg.notches*360} ${c} ${c})`);lbl.textContent=`${seg.pos+1}/${seg.notches}`}
 function frame(){let h=null,fr=0,now=0;
  if(playing&&ac){now=ac.currentTime;while(hits.length>1&&hits[1].t<=now)hits.shift();if(hits[0]&&hits[0].t<=now){h=hits[0];fr=Math.min(1,(now-h.t)/stepDur())}}
@@ -234,6 +247,17 @@ function frame(){let h=null,fr=0,now=0;
  E.querySelectorAll('.lane').forEach(ln=>{const l=s.lanes[+ln.dataset.l];if(l)ln.querySelector('.now').textContent=`now ${Math.round(laneValue(l,s.pos,s.notches))}${FX[l.fx].u}`});
  if(recording)recB.textContent=`Stop rec ${Math.floor((Date.now()-recStart)/1000)}s`;
  requestAnimationFrame(frame)}
+const INFO={
+top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
+rows:['Rows',['Each row is a line of blocks with its own red line. All rows play at the same time.','A row can be 1 to 16 blocks long. Rows of different lengths drift apart and line up again later, which keeps the pattern changing.','The wheel in each block shows its current notch out of its total. The color shows which sound is in the block.','Tap any block to edit it below. Add row adds up to 6 rows.']],
+block:['Block and row settings',['Notches sets how many positions the wheel has, from 1 to 360.','Each time the red line crosses the block, it plays at the current notch, then the wheel turns. It turns 1 notch unless an advance assignment says otherwise.','Notch back, Notch forward and To notch 1 move the wheel by hand.','Row length, Choke, Mute row and Remove row change the whole row. Choke makes each new hit in the row stop the one before it, which sharpens the gaps.']],
+assign:['Assignments',['Each assignment ties one setting to the wheel. A block can have as many as you want.','Step list cycles your values one per notch, like 10,20,30,40. Ramp moves from From to To across all the notches. Up and down climbs then falls. Smooth wave follows a curve. Random repeat picks values that repeat every cycle. Follow wheel reads another block\'s wheel position, so one wheel steers another.','Echo, room, tremolo, filter and drive run 0 to 100. Room is a short reverb. Spread scatters each repeat across left and right. Tremrate is 1 to 30 Hz. Reso is 0 to 30. Pitch is -24 to 24 semitones. Volume is 0 to 150. Pan is -100 to 100. Decay is 10 to 400.','Tone sets how bright struck materials ring. Gate cuts each hit after that many milliseconds. Chance is the odds the block plays at all. Advance sets how many notches the wheel turns per pass, and 0 freezes it.','Ratchet repeats a hit up to 16 times inside the span, measured in steps. Accel above 0 squeezes the repeats together like a bouncing ball, and below 0 spreads them out. Fall lowers each repeat. Rpitch shifts each repeat in semitones.']],
+sounds:['Sounds',['Kick, snare, hat, open hat, clap, tom, rim, cowbell, bass and zap are drum machine voices.','Steel, glass, wood, ceramic, ball and pin are struck materials. Each rings with its own set of overtones. Ping is a bright bell.','__legend__']]};
+function legend(){return SOUNDS.filter(x=>x!=='none').map(x=>`<span class="dot" style="background:${COL[x]}"></span>${x}`).join(' ')}
+const IB=document.getElementById('infobox'),IT=document.getElementById('itxt');
+document.addEventListener('click',e=>{const b=e.target.closest('.info');if(!b)return;e.stopPropagation();const [t,ps]=INFO[b.dataset.topic];IT.innerHTML=`<span class="ttl">${t}</span>`+ps.map(p=>`<p>${p==='__legend__'?legend():p}</p>`).join('');IB.hidden=false},true);
+document.getElementById('iclose').onclick=()=>{IB.hidden=true};
+IB.addEventListener('click',e=>{if(e.target===IB)IB.hidden=true});
 renderQueue();renderEd();requestAnimationFrame(frame);
 </script>
 </body>
