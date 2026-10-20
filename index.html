@@ -19,7 +19,9 @@ input,select{font:inherit;padding:6px;border:1px solid var(--line);border-radius
 input[type=number]{width:72px}
 main{padding:20px 16px;max-width:900px;margin:0 auto}
 #queue{display:flex;flex-direction:column;gap:6px}
-.qrow{position:relative;display:grid;border:2px solid var(--acc);border-radius:8px;background:var(--card);overflow:hidden}
+.qline{display:flex;gap:4px;align-items:stretch}
+.rh{width:28px;flex:none;padding:0;border:0;border-radius:8px;color:#fff;font-size:11px;font-weight:700;writing-mode:vertical-rl;transform:rotate(180deg);letter-spacing:.5px}
+.qrow{flex:1;min-width:0;position:relative;display:grid;border:2px solid var(--acc);border-radius:8px;background:var(--card);overflow:hidden}
 .qrow.muted{opacity:.4}
 .head{position:absolute;top:0;bottom:0;width:3px;background:var(--red);left:0;pointer-events:none;z-index:2}
 .blk{border-right:1px solid var(--acc);padding:6px 1px;text-align:center;cursor:pointer;min-width:0}
@@ -39,11 +41,12 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 #bw svg{width:220px;max-width:100%;display:block;margin:0 auto 10px}
 .info{width:30px;height:30px;padding:0;border-radius:50%;font-weight:700;color:var(--accd);border-color:var(--acc);font-size:15px;line-height:1}
 .sechead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:var(--mute)}
-#infobox{position:fixed;inset:0;background:rgba(34,32,29,.35);display:flex;align-items:flex-end;justify-content:center;z-index:10}
-#infobox[hidden]{display:none}
+#infobox,.sheet{position:fixed;inset:0;background:rgba(34,32,29,.35);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+#infobox[hidden],.sheet[hidden]{display:none}
 .ibody{background:var(--card);width:100%;max-width:640px;max-height:80vh;overflow:auto;border-radius:14px 14px 0 0;padding:18px 16px 24px;font-size:15px;line-height:1.55}
 .ibody p{margin:0 0 12px}
 .ibody .ttl{display:block;margin-bottom:10px;color:var(--accd)}
+.rp{display:block;width:100%;text-align:left;margin-bottom:6px;border-left-width:6px}
 .dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin:0 4px 0 10px;vertical-align:-1px}
 </style>
 </head>
@@ -65,13 +68,21 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 <div id="rowbar"><button id="addrow">Add row</button></div>
 <div id="ed"></div>
 </main>
+<div id="rowpick" class="sheet" hidden><div class="ibody"><span class="ttl" id="rpt"></span><div id="rpfam" class="row"></div><div id="rplist"></div><div class="row"><button id="rpempty">Empty row</button><button id="rpclose" class="go">Close</button></div></div></div>
 <div id="infobox" hidden><div class="ibody"><div id="itxt"></div><button id="iclose" class="go">Close</button></div></div>
 <script>
 const FX={echo:{min:0,max:100,def:0,u:'%'},room:{min:0,max:100,def:0,u:'%'},spread:{min:0,max:100,def:0,u:'%'},tremolo:{min:0,max:100,def:0,u:'%'},tremrate:{min:1,max:30,def:8,u:'Hz'},filter:{min:0,max:100,def:100,u:'%'},reso:{min:0,max:30,def:1,u:'Q'},pitch:{min:-24,max:24,def:0,u:'st'},volume:{min:0,max:150,def:100,u:'%'},pan:{min:-100,max:100,def:0,u:''},drive:{min:0,max:100,def:0,u:'%'},decay:{min:10,max:400,def:100,u:'%'},tone:{min:0,max:100,def:50,u:''},gate:{min:0,max:1000,def:0,u:'ms'},chance:{min:0,max:100,def:100,u:'%'},advance:{min:0,max:64,def:1,u:''},ratchet:{min:1,max:16,def:1,u:'x'},span:{min:1,max:16,def:1,u:' steps'},accel:{min:-90,max:90,def:0,u:''},fall:{min:0,max:90,def:0,u:'%'},rpitch:{min:-12,max:12,def:0,u:'st'}};
-const SOUNDS=['kick','snare','hat','openhat','clap','tom','rim','cowbell','bass','zap','ping','steel','glass','wood','ceramic','ball','pin','none'];
+const FAM={'808':['kick','snare','hat','openhat','clap','tom','rim','cowbell'],Glass:['glass','wineglass','bottle','chime'],Wood:['wood','block','marimba','clave'],Metal:['steel','pin','ball','bell'],Ceramic:['ceramic','cup','plate'],Bass:['bass','sub','growl'],Reed:['sax','clarinet','flute'],FX:['zap','ping','sweep']};
+const FAMCOL={'808':'#e8590c',Glass:'#0ea5b7',Wood:'#8b5a2b',Metal:'#5f6b76',Ceramic:'#e64980',Bass:'#7048e8',Reed:'#2f9e44',FX:'#ae3ec9',Empty:'#cfc4b8'};
+const SOUNDS=[].concat(...Object.values(FAM),['none']);
+function famOf(x){for(const f in FAM)if(FAM[f].includes(x))return f;return null}
+function rowFam(rw){for(let i=0;i<rw.len;i++){const f=famOf(rw.segs[i].sound);if(f)return f}return 'Empty'}
 const MODES={list:'Step list',ramp:'Ramp',tri:'Up and down',sine:'Smooth wave',rand:'Random repeat',follow:'Follow wheel'};
-const MAT={steel:{f:440,r:[1,2.76,5.40,8.93,13.34],a:[1,.6,.4,.25,.15],d:[1.8,1.2,.8,.5,.3],c:6000},glass:{f:880,r:[1,2.32,4.25,6.63,9.38],a:[1,.5,.35,.2,.12],d:[1.1,.7,.45,.3,.2],c:9000},wood:{f:220,r:[1,2.57,4.21,6.22],a:[1,.35,.15,.08],d:[.22,.11,.06,.04],c:2500},ceramic:{f:660,r:[1,1.59,2.14,2.65,3.16],a:[1,.7,.5,.35,.2],d:[.6,.45,.3,.22,.15],c:5000},ball:{f:2200,r:[1,1.52,2.31,3.4],a:[1,.6,.4,.2],d:[.12,.09,.06,.04],c:5000},pin:{f:1760,r:[1,2.76,5.40],a:[1,.3,.15],d:[2,.9,.4],c:8000}};
-const COL={kick:'#e8590c',snare:'#d6336c',hat:'#f59f00',openhat:'#e0a800',clap:'#c2255c',tom:'#a0522d',rim:'#8d6e63',cowbell:'#b08800',bass:'#7048e8',zap:'#12b886',ping:'#1c7ed6',steel:'#5f6b76',glass:'#0ea5b7',wood:'#8b5a2b',ceramic:'#e64980',ball:'#4c6ef5',pin:'#339af0',none:'#cfc4b8'};
+const MAT={steel:{f:440,r:[1,2.76,5.40,8.93,13.34],a:[1,.6,.4,.25,.15],d:[1.8,1.2,.8,.5,.3],c:6000},glass:{f:880,r:[1,2.32,4.25,6.63,9.38],a:[1,.5,.35,.2,.12],d:[1.1,.7,.45,.3,.2],c:9000},wood:{f:220,r:[1,2.57,4.21,6.22],a:[1,.35,.15,.08],d:[.22,.11,.06,.04],c:2500},ceramic:{f:660,r:[1,1.59,2.14,2.65,3.16],a:[1,.7,.5,.35,.2],d:[.6,.45,.3,.22,.15],c:5000},ball:{f:2200,r:[1,1.52,2.31,3.4],a:[1,.6,.4,.2],d:[.12,.09,.06,.04],c:5000},pin:{f:1760,r:[1,2.76,5.40],a:[1,.3,.15],d:[2,.9,.4],c:8000},
+wineglass:{f:1320,r:[1,2.32,4.25],a:[1,.35,.12],d:[2.6,1.4,.6],c:9000},bottle:{f:330,r:[1,2.8,5.1],a:[1,.25,.1],d:[.35,.15,.08],c:1800},chime:{f:1046,r:[1,2.76,5.40,8.93],a:[1,.5,.3,.15],d:[3,2,1.2,.6],c:9000},
+block:{f:900,r:[1,2.67,4.12],a:[1,.4,.2],d:[.08,.04,.03],c:4000},marimba:{f:262,r:[1,3.93,9.8],a:[1,.25,.08],d:[.9,.2,.08],c:1500},clave:{f:2500,r:[1,2.1],a:[1,.3],d:[.07,.03],c:5000},
+bell:{f:523,r:[.5,1,1.19,1.56,2,2.51],a:[.6,1,.7,.5,.6,.3],d:[3,2.5,2,1.6,1.2,1],c:6000},cup:{f:990,r:[1,1.59,2.14],a:[1,.6,.3],d:[.35,.25,.15],c:6000},plate:{f:520,r:[1,1.47,2.09,2.56,3.2],a:[1,.8,.6,.4,.3],d:[.9,.7,.5,.4,.3],c:5000}};
+const COL={kick:'#e8590c',snare:'#c92a2a',hat:'#f59f00',openhat:'#e67700',clap:'#d9480f',tom:'#a0522d',rim:'#b5651d',cowbell:'#c99700',glass:'#0ea5b7',wineglass:'#22b8cf',bottle:'#0c8599',chime:'#1098ad',wood:'#8b5a2b',block:'#a9713c',marimba:'#6f4518',clave:'#c08a4e',steel:'#5f6b76',pin:'#339af0',ball:'#4c6ef5',bell:'#364fc7',ceramic:'#e64980',cup:'#f06595',plate:'#c2255c',bass:'#7048e8',sub:'#5f3dc4',growl:'#9775fa',sax:'#2f9e44',clarinet:'#37b24d',flute:'#4caf50',zap:'#ae3ec9',ping:'#9c36b5',sweep:'#be4bdb',none:'#cfc4b8'};
 const MAXROWS=6,MAXLEN=16;
 function L(fx,mode,a,b){return mode==='list'?{fx,mode,vals:a,from:FX[fx].min,to:FX[fx].max,sr:0,sb:0}:{fx,mode,vals:'',from:a,to:b,sr:0,sb:0}}
 function F(fx,sr,sb,a,b){return{fx,mode:'follow',vals:'',from:a,to:b,sr,sb}}
@@ -82,6 +93,40 @@ function dnbRows(){return[
  row({4:sg('snare',1,[L('room','list','15')]),7:sg('snare',4,[L('volume','list','0,35,0,55'),L('decay','list','60')])}),
  row({0:sg('hat',1,[L('volume','list','80')]),1:sg('hat',2,[L('volume','list','30,50'),L('pan','list','-40,40')]),2:sg('hat',1,[L('volume','list','80')]),3:sg('hat',3,[L('volume','list','30,45,60'),L('ratchet','list','1,1,2')]),4:sg('hat',1,[L('volume','list','70')]),5:sg('hat',2,[L('volume','list','35,50')]),6:sg('openhat',2,[L('volume','list','60,40'),L('decay','list','80,140')]),7:sg('hat',4,[L('volume','list','40'),L('ratchet','list','1,1,1,3'),L('accel','list','40')])},8,true),
  row({0:sg('bass',4,[L('pitch','list','0,0,3,-2'),L('decay','list','160'),L('filter','list','55')]),3:sg('bass',2,[L('pitch','list','-5,7'),L('volume','list','70'),L('decay','list','70'),L('filter','list','50')])})]}
+const ROWLIB={
+ '808':{'Four on the floor':()=>row({0:sg('kick'),2:sg('kick'),4:sg('kick'),6:sg('kick')}),
+  'Two step kick':()=>row({0:sg('kick'),2:sg('kick',2,[L('volume','list','0,100')])}),
+  'Backbeat snare':()=>row({4:sg('snare',1,[L('room','list','15')]),7:sg('snare',4,[L('volume','list','0,35,0,55'),L('decay','list','60')])}),
+  'Hat run':()=>dnbRows()[2],
+  'Clap stack':()=>row({4:sg('clap',4,[L('ratchet','list','1,2,1,4'),L('accel','list','30'),L('room','list','25')])}),
+  'Rolling toms':()=>row({0:sg('tom',4,[L('ratchet','list','4,6,3,8'),L('span','list','4'),L('rpitch','list','-2'),L('fall','list','8')])}),
+  'Cowbell bounce':()=>row({2:sg('cowbell',3,[L('volume','list','60,40,80'),L('ratchet','list','1,2,1')]),6:sg('cowbell',2,[L('pitch','list','0,5'),L('volume','list','50')])})},
+ Glass:{'Rain':()=>PRESETS0['Glass rain']().rows[0],
+  'Chime cascade':()=>row({0:sg('chime',4,[L('ratchet','list','6,8,5,7'),L('span','list','8'),L('accel','list','-20'),L('rpitch','list','2,3,-2,5'),L('fall','list','10'),L('room','list','60'),L('spread','list','60')])}),
+  'Bottle pulse':()=>row({0:sg('bottle',3,[L('pitch','list','0,3,7')]),3:sg('bottle',2,[L('pitch','list','5,10'),L('volume','list','70')]),6:sg('bottle',1,[L('pitch','list','12'),L('volume','list','60')])}),
+  'Shatter':()=>row({0:sg('glass',4,[L('chance','list','100,40,70,30'),L('ratchet','list','16'),L('span','list','4'),L('accel','list','30'),L('fall','list','8'),L('spread','list','100'),L('room','list','40'),L('tone','list','80')])}),
+  'Wineglass rings':()=>row({0:sg('wineglass',4,[L('pitch','list','0,5,7,12'),L('room','list','50'),L('volume','list','70')]),4:sg('wineglass',3,[L('pitch','list','7,3,10'),L('volume','list','50'),L('pan','list','-50,50')])})},
+ Wood:{'Clave 3 2':()=>row({0:sg('clave'),3:sg('clave'),6:sg('clave'),10:sg('clave'),12:sg('clave')},16),
+  'Woodblock clock':()=>row({0:sg('block'),2:sg('block',1,[L('pitch','list','7')])},5),
+  'Marimba arp':()=>{const m={};const sc=['0','3','7','10','12','7','5','3'];for(let i=0;i<8;i++)m[i]=sg('marimba',4,[L('pitch','list',sc[i]+','+sc[(i+2)%8]+','+sc[(i+4)%8]+','+sc[(i+6)%8]),L('volume','list','70'),L('room','list','20')]);return row(m)},
+  'Knock knock':()=>row({4:sg('wood',2,[L('ratchet','list','3,2'),L('accel','list','50'),L('fall','list','30')])}),
+  'Wood clock':()=>PRESETS0['Wood clock']().rows[0]},
+ Metal:{'Steel ball':()=>PRESETS0['Steel ball']().rows[0],
+  'Pin drop':()=>PRESETS0['Pin drop']().rows[0],
+  'Bell toll':()=>row({0:sg('bell',4,[L('pitch','list','0,-5,-7,-12'),L('room','list','50'),L('volume','list','70')])}),
+  'Steel stairs':()=>row({0:sg('steel',8,[L('pitch','ramp',0,12),L('ratchet','list','2'),L('accel','list','40'),L('fall','list','30'),L('room','list','35')]),4:sg('pin',3,[L('pitch','list','12,7,19'),L('volume','list','40')])})},
+ Ceramic:{'Cups':()=>row({1:sg('cup',3,[L('pitch','list','0,2,5')]),3:sg('cup',2,[L('pitch','list','7,3'),L('volume','list','70')]),6:sg('cup',1,[L('pitch','list','12'),L('volume','list','60')])}),
+  'Plate wash':()=>row({0:sg('plate',4,[L('ratchet','list','5,8,4,6'),L('span','list','4'),L('accel','list','15'),L('fall','list','12'),L('spread','list','50'),L('room','list','30')])}),
+  'Tiles':()=>row({0:sg('ceramic'),3:sg('ceramic',3,[L('pitch','list','5,7,12'),L('volume','list','50')]),5:sg('ceramic',1,[L('pitch','list','-5')])},7)},
+ Bass:{'Roller':()=>dnbRows()[3],
+  'Sub pulse':()=>row({0:sg('sub'),4:sg('sub',2,[L('pitch','list','0,-5')])}),
+  'Growl':()=>{const m={};for(let i=0;i<8;i+=2)m[i]=sg('growl',4,[L('pitch','list',['0,0,3,-2','0','7,5','-5'][i/2]),L('filter','sine',40,90),L('volume','list','60')]);return row(m)}},
+ Reed:{'Sax stabs':()=>row({0:sg('sax',4,[L('pitch','list','0,0,3,-2'),L('decay','list','80'),L('room','list','25')]),3:sg('sax',2,[L('pitch','list','7,5'),L('decay','list','50'),L('volume','list','70')]),6:sg('sax',3,[L('pitch','list','10,12,7'),L('decay','list','60'),L('volume','list','60')])}),
+  'Clarinet line':()=>row({0:sg('clarinet',8,[L('pitch','list','0,3,5,7,10,7,5,3'),L('decay','list','120'),L('room','list','30')]),4:sg('clarinet',4,[L('pitch','list','12,10,7,5'),L('decay','list','90'),L('volume','list','60')])}),
+  'Flute breath':()=>row({0:sg('flute',4,[L('pitch','list','0,7,5,12'),L('decay','list','200'),L('room','list','50')]),5:sg('flute',3,[L('pitch','list','3,10,7'),L('decay','list','120'),L('volume','list','50'),L('echo','list','40')])})},
+ FX:{'Zap rain':()=>row({1:sg('zap',5,[L('chance','rand',20,70),L('spread','list','90'),L('pitch','rand',-5,12)]),5:sg('zap',3,[L('chance','list','60'),L('pitch','list','12,0,7')])}),
+  'Ping stars':()=>row({0:sg('ping',6,[L('pitch','list','12,19,15,24,7,17'),L('echo','list','50'),L('room','list','40'),L('volume','list','50'),L('pan','sine',-70,70)])}),
+  'Sweeps':()=>row({0:sg('sweep',4,[L('decay','list','100,200,150,300'),L('volume','list','50'),L('room','list','30')])})}};
 const PRESETS0={
  'Boom bop':()=>({bpm:110,div:2,rows:[row({0:sg('kick',4,[L('echo','list','10,20,30,40')]),1:sg('kick'),2:sg('snare',8,[L('tremolo','tri',0,80)]),3:sg('kick'),4:sg('kick'),5:sg('kick'),6:sg('kick'),7:sg('kick')})]}),
  'Breakneck':()=>({bpm:174,div:4,rows:dnbRows()}),
@@ -134,8 +179,16 @@ function osc(type,f,t,dur,out){const o=ac.createOscillator();o.type=type;o.frequ
 function modal(m,t,pm,dm,tone,out){const tilt=(tone-50)/30,amps=m.a.map((a,k)=>a*Math.pow(k+1,tilt));let tot=0;amps.forEach(a=>tot+=a);
  m.r.forEach((x,k)=>{const f=m.f*pm*x;if(f>18000)return;const pg=ac.createGain();pg.connect(out);const d=m.d[k]*dm;osc('sine',f,t,d+.05,pg);env(pg,t,Math.max(.0002,.6*amps[k]/tot),d)});
  const n=nz(t,.006),bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=Math.min(16000,m.c*pm);bp.Q.value=.8;const cg=ac.createGain();cg.gain.value=.25*tone/50;n.connect(bp);bp.connect(cg);cg.connect(out)}
+function reed(t,f,type,pm,dm,out,o2){const g=ac.createGain();g.connect(out);const o=ac.createOscillator();o.type=type;o.frequency.setValueAtTime(f*pm,t);const v=ac.createOscillator();v.frequency.value=5.5;const vg=ac.createGain();vg.gain.setValueAtTime(0,t);vg.gain.linearRampToValueAtTime(f*pm*.01,t+.25);v.connect(vg);vg.connect(o.frequency);
+ const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=o2.bp;bp.Q.value=o2.q;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=o2.lp;o.connect(bp);bp.connect(lp);const dry=ac.createGain();dry.gain.value=o2.dry;o.connect(dry);dry.connect(lp);lp.connect(g);
+ const hold=.3*dm,end=t+o2.att+hold+.15;o.start(t);v.start(t);o.stop(end+.05);v.stop(end+.05);
+ const n=nz(t,Math.min(.95,end-t)),nb=ac.createBiquadFilter();nb.type='bandpass';nb.frequency.value=o2.nf;const ng=ac.createGain();ng.gain.value=o2.br;n.connect(nb);nb.connect(ng);ng.connect(g);
+ g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(.45,t+o2.att);g.gain.setValueAtTime(.4,t+o2.att+hold);g.gain.exponentialRampToValueAtTime(.0001,end)}
 function voice(sound,t,P,out){const pm=Math.pow(2,P.pitch/12),dm=P.decay/100;
  if(MAT[sound]){modal(MAT[sound],t,pm,dm,P.tone,out);return}
+ if(sound==='sax'){reed(t,233,'sawtooth',pm,dm,out,{bp:1100,q:1.2,lp:3500,dry:.35,att:.03,nf:1600,br:.15});return}
+ if(sound==='clarinet'){reed(t,196,'square',pm,dm,out,{bp:900,q:.8,lp:2200,dry:.5,att:.04,nf:1200,br:.08});return}
+ if(sound==='flute'){reed(t,523,'triangle',pm,dm,out,{bp:1200,q:.5,lp:4000,dry:.8,att:.07,nf:3000,br:.35});return}
  const g=ac.createGain();g.connect(out);
  if(sound==='kick'){const o=osc('sine',150*pm,t,.5*dm+.05,g);o.frequency.exponentialRampToValueAtTime(45*pm,t+.12);env(g,t,1,.45*dm)}
  else if(sound==='snare'){const n=nz(t,.3*dm+.05),hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=1200*pm;n.connect(hp);hp.connect(g);env(g,t,.8,.22*dm);const og=ac.createGain();og.connect(out);osc('triangle',185*pm,t,.2,og);env(og,t,.5,.1*dm)}
@@ -146,6 +199,9 @@ function voice(sound,t,P,out){const pm=Math.pow(2,P.pitch/12),dm=P.decay/100;
  else if(sound==='cowbell'){const bp=ac.createBiquadFilter();bp.type='bandpass';bp.frequency.value=2000*pm;bp.connect(g);osc('square',540*pm,t,.4*dm+.05,bp);osc('square',800*pm,t,.4*dm+.05,bp);env(g,t,.5,.3*dm)}
  else if(sound==='bass'){const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=420;lp.connect(g);const d=.6*dm+.05;osc('sine',55*pm,t,d,lp);const sa=ac.createGain();sa.gain.value=.3;sa.connect(lp);osc('sawtooth',55*pm,t,d,sa).detune.value=8;env(g,t,.9,.55*dm)}
  else if(sound==='ping'){const f=880*pm,d=1.3*dm+.05,c=ac.createOscillator(),m=ac.createOscillator(),mg=ac.createGain();c.frequency.value=f;m.frequency.value=f*3.5;mg.gain.setValueAtTime(f*2,t);mg.gain.exponentialRampToValueAtTime(1,t+.4*dm+.01);m.connect(mg);mg.connect(c.frequency);c.connect(g);c.start(t);m.start(t);c.stop(t+d);m.stop(t+d);env(g,t,.35,1.2*dm)}
+ else if(sound==='sub'){const o=osc('sine',41*pm,t,.9*dm+.05,g);o.frequency.exponentialRampToValueAtTime(36*pm,t+.2);env(g,t,1,.8*dm)}
+ else if(sound==='growl'){const lp=ac.createBiquadFilter();lp.type='lowpass';lp.Q.value=8;lp.frequency.setValueAtTime(1600,t);lp.frequency.exponentialRampToValueAtTime(180,t+.25*dm+.01);lp.connect(g);const d=.45*dm+.05;osc('sawtooth',55*pm,t,d,lp).detune.value=12;osc('sawtooth',55*pm,t,d,lp).detune.value=-12;env(g,t,.5,.4*dm)}
+ else if(sound==='sweep'){const n=nz(t,Math.min(.95,.6*dm+.05)),bp=ac.createBiquadFilter();bp.type='bandpass';bp.Q.value=6;bp.frequency.setValueAtTime(200,t);bp.frequency.exponentialRampToValueAtTime(7000,t+.5*dm+.01);n.connect(bp);bp.connect(g);env(g,t,.6,.55*dm)}
  else if(sound==='zap'){const o=osc('sine',3000*pm,t,.15*dm+.05,g);o.frequency.exponentialRampToValueAtTime(80*pm,t+.12*dm+.01);env(g,t,.6,.14*dm)}}
 function cut(gn,v,at){gn.gain.setValueAtTime(v,Math.max(0,at-.003));gn.gain.linearRampToValueAtTime(0,at)}
 const lastGroup=[];
@@ -187,7 +243,7 @@ function wheelSVG(seg,big){const N=seg.notches,size=big?220:64,r=big?96:26,c=siz
  if(big||N<=36){for(let k=0;k<N;k++){const a=k/N*2*Math.PI-Math.PI/2,r1=r-(big?10:4);s+=`<line x1="${(c+Math.cos(a)*r1).toFixed(1)}" y1="${(c+Math.sin(a)*r1).toFixed(1)}" x2="${(c+Math.cos(a)*r).toFixed(1)}" y2="${(c+Math.sin(a)*r).toFixed(1)}" stroke="${col}" stroke-opacity=".55" stroke-width="1"/>`}}
  s+=`<line class="ind" x1="${c}" y1="${c}" x2="${c}" y2="${c-r+3}" stroke="#22201d" stroke-width="${big?4:3}" stroke-linecap="round" transform="rotate(${seg.pos/N*360} ${c} ${c})"/>`;
  s+=`<text class="lbl" x="${c}" y="${c+(big?44:20)}" text-anchor="middle" font-size="${big?18:10}" fill="#776f66">${seg.pos+1}/${N}</text></svg>`;return s}
-function renderQueue(){Q.innerHTML=S.rows.map((rw,r)=>`<div class="qrow${rw.mute?' muted':''}" data-r="${r}" style="grid-template-columns:repeat(${rw.len},1fr)"><div class="head"></div>${rw.segs.slice(0,rw.len).map((s,i)=>`<div class="blk${r===sel.r&&i===sel.i?' sel':''}${s.sound==='none'?' none':''}" data-r="${r}" data-i="${i}" style="background:${(COL[s.sound]||COL.none)}12">${wheelSVG(s,false)}<div class="nm" style="color:${s.sound==='none'?'var(--mute)':COL[s.sound]}">${i+1} ${s.sound}</div></div>`).join('')}</div>`).join('');document.getElementById('addrow').disabled=S.rows.length>=MAXROWS}
+function renderQueue(){Q.innerHTML=S.rows.map((rw,r)=>{const f=rowFam(rw);return`<div class="qline"><button class="rh" data-r="${r}" style="background:${FAMCOL[f]}">${f==='Empty'?'+ row':f}</button><div class="qrow${rw.mute?' muted':''}" data-r="${r}" style="grid-template-columns:repeat(${rw.len},1fr)"><div class="head"></div>${rw.segs.slice(0,rw.len).map((s,i)=>`<div class="blk${r===sel.r&&i===sel.i?' sel':''}${s.sound==='none'?' none':''}" data-r="${r}" data-i="${i}" style="background:${(COL[s.sound]||COL.none)}12">${wheelSVG(s,false)}<div class="nm" style="color:${s.sound==='none'?'var(--mute)':COL[s.sound]}">${i+1} ${s.sound}</div></div>`).join('')}</div></div>`}).join('');document.getElementById('addrow').disabled=S.rows.length>=MAXROWS}
 function opts(list,cur){return list.map(([v,t])=>`<option value="${v}"${v===cur?' selected':''}>${t}</option>`).join('')}
 function srcList(){const o=[];S.rows.forEach((rw,r)=>{for(let i=0;i<rw.len;i++)o.push([`${r}:${i}`,`Row ${r+1} Block ${i+1}`])});return o}
 function laneInputs(l){if(l.mode==='list')return`<input class="vals" data-k="vals" placeholder="10,20,30,40" value="${l.vals}">`;
@@ -195,7 +251,7 @@ function laneInputs(l){if(l.mode==='list')return`<input class="vals" data-k="val
  return h+`<label>From <input type="number" data-k="from" value="${l.from}"></label><label>To <input type="number" data-k="to" value="${l.to}"></label>`}
 function renderEd(){fixSel();const rw=S.rows[sel.r],s=rw.segs[sel.i];
  E.innerHTML=`<div class="row"><span class="ttl">Row ${sel.r+1} Block ${sel.i+1}</span><button class="info" data-topic="block">i</button>
- <label>Sound <select id="snd" style="border-color:${COL[s.sound]};color:${COL[s.sound]}">${opts(SOUNDS.map(x=>[x,x]),s.sound)}</select></label><button class="info" data-topic="sounds">i</button>
+ <label>Sound <select id="fam" style="border-color:${FAMCOL[famOf(s.sound)||'Empty']};color:${FAMCOL[famOf(s.sound)||'Empty']}">${opts([...Object.keys(FAM),'Empty'].map(x=>[x,x]),famOf(s.sound)||'Empty')}</select></label>${famOf(s.sound)?`<select id="snd" style="border-color:${COL[s.sound]};color:${COL[s.sound]}">${opts(FAM[famOf(s.sound)].map(x=>[x,x]),s.sound)}</select>`:''}<button class="info" data-topic="sounds">i</button>
  <label>Notches <input id="nn" type="number" min="1" max="360" value="${s.notches}"></label></div>
  <div class="row"><label>Row length <input id="rlen" type="number" min="1" max="${MAXLEN}" value="${rw.len}"></label>
  <button id="choke">${rw.choke?'Choke on':'Choke off'}</button><button id="mute">${rw.mute?'Unmute row':'Mute row'}</button><button id="delrow"${S.rows.length<2?' disabled':''}>Remove row</button></div>
@@ -207,9 +263,10 @@ function renderEd(){fixSel();const rw=S.rows[sel.r],s=rw.segs[sel.i];
  ${laneInputs(l)}<span class="now"></span><button data-k="del">Remove</button></div>`).join('')}</div>
  <div class="row"><button id="add">Add assignment</button><button class="info" data-topic="assign">i</button></div>`}
 function refreshAll(){renderQueue();renderEd();save()}
-Q.addEventListener('click',e=>{const b=e.target.closest('.blk');if(b){sel={r:+b.dataset.r,i:+b.dataset.i};renderQueue();renderEd()}});
+Q.addEventListener('click',e=>{const h=e.target.closest('.rh');if(h){openPick(+h.dataset.r);return}const b=e.target.closest('.blk');if(b){sel={r:+b.dataset.r,i:+b.dataset.i};renderQueue();renderEd()}});
 function cur(){fixSel();return S.rows[sel.r].segs[sel.i]}
 function edit(e){const t=e.target,s=cur(),rw=S.rows[sel.r];
+ if(t.id==='fam'){if(e.type!=='change')return;s.sound=t.value==='Empty'?'none':FAM[t.value][0];renderQueue();renderEd();save();return}
  if(t.id==='snd'){s.sound=t.value;renderQueue();renderEd();save();return}
  if(t.id==='nn'){const n=Math.max(1,Math.min(360,parseInt(t.value)||1));s.notches=n;s.pos%=n;document.getElementById('bw').innerHTML=wheelSVG(s,true);renderQueue();save();return}
  if(t.id==='rlen'){const n=parseInt(t.value);if(n>=1&&n<=MAXLEN){rw.len=n;if(sel.i>=n)sel.i=n-1;renderQueue();save()}return}
@@ -249,11 +306,20 @@ function frame(){let h=null,fr=0,now=0;
  requestAnimationFrame(frame)}
 const INFO={
 top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
-rows:['Rows',['Each row is a line of blocks with its own red line. All rows play at the same time.','A row can be 1 to 16 blocks long. Rows of different lengths drift apart and line up again later, which keeps the pattern changing.','The wheel in each block shows its current notch out of its total. The color shows which sound is in the block.','Tap any block to edit it below. Add row adds up to 6 rows.']],
+rows:['Rows',['Each row is a line of blocks with its own red line. All rows play at the same time.','A row can be 1 to 16 blocks long. Rows of different lengths drift apart and line up again later, which keeps the pattern changing.','The wheel in each block shows its current notch out of its total. The color shows which sound is in the block.','Tap any block to edit it below. Add row adds up to 6 rows.','The colored bar on the left of each row shows its instrument family. Tap it to load a row preset: pick a family across the top, then a pattern. Only that row changes.']],
 block:['Block and row settings',['Notches sets how many positions the wheel has, from 1 to 360.','Each time the red line crosses the block, it plays at the current notch, then the wheel turns. It turns 1 notch unless an advance assignment says otherwise.','Notch back, Notch forward and To notch 1 move the wheel by hand.','Row length, Choke, Mute row and Remove row change the whole row. Choke makes each new hit in the row stop the one before it, which sharpens the gaps.']],
 assign:['Assignments',['Each assignment ties one setting to the wheel. A block can have as many as you want.','Step list cycles your values one per notch, like 10,20,30,40. Ramp moves from From to To across all the notches. Up and down climbs then falls. Smooth wave follows a curve. Random repeat picks values that repeat every cycle. Follow wheel reads another block\'s wheel position, so one wheel steers another.','Echo, room, tremolo, filter and drive run 0 to 100. Room is a short reverb. Spread scatters each repeat across left and right. Tremrate is 1 to 30 Hz. Reso is 0 to 30. Pitch is -24 to 24 semitones. Volume is 0 to 150. Pan is -100 to 100. Decay is 10 to 400.','Tone sets how bright struck materials ring. Gate cuts each hit after that many milliseconds. Chance is the odds the block plays at all. Advance sets how many notches the wheel turns per pass, and 0 freezes it.','Ratchet repeats a hit up to 16 times inside the span, measured in steps. Accel above 0 squeezes the repeats together like a bouncing ball, and below 0 spreads them out. Fall lowers each repeat. Rpitch shifts each repeat in semitones.']],
-sounds:['Sounds',['Kick, snare, hat, open hat, clap, tom, rim, cowbell, bass and zap are drum machine voices.','Steel, glass, wood, ceramic, ball and pin are struck materials. Each rings with its own set of overtones. Ping is a bright bell.','__legend__']]};
-function legend(){return SOUNDS.filter(x=>x!=='none').map(x=>`<span class="dot" style="background:${COL[x]}"></span>${x}`).join(' ')}
+sounds:['Sounds',['The first menu picks a family. The second picks the instrument inside it. Empty clears the block.','808 holds the drum machine voices. Glass, Wood, Metal and Ceramic are struck materials, each ringing with its own set of overtones. Bass holds low voices. Reed holds breathy wind voices. FX holds zaps, pings and sweeps.','Each family has its own color, and each instrument is a shade of it.','__legend__']]};
+function legend(){return Object.entries(FAM).map(([f,l])=>`<span style="color:${FAMCOL[f]};font-weight:700">${f}</span>`+l.map(x=>`<span class="dot" style="background:${COL[x]}"></span>${x}`).join(' ')).join('<br>')}
+const RP=document.getElementById('rowpick');let rpRow=0,rpFam='808';
+function openPick(r){rpRow=r;const f=rowFam(S.rows[r]);rpFam=f==='Empty'?'808':f;drawPick();RP.hidden=false}
+function drawPick(){document.getElementById('rpt').textContent=`Row ${rpRow+1} presets`;
+ document.getElementById('rpfam').innerHTML=Object.keys(ROWLIB).map(f=>`<button data-f="${f}" style="border-color:${FAMCOL[f]};color:${f===rpFam?'#fff':FAMCOL[f]};background:${f===rpFam?FAMCOL[f]:'#fff'}">${f}</button>`).join('');
+ document.getElementById('rplist').innerHTML=Object.keys(ROWLIB[rpFam]).map(n=>`<button class="rp" data-n="${n}" style="border-left-color:${FAMCOL[rpFam]}">${n}</button>`).join('')}
+RP.addEventListener('click',e=>{const t=e.target;if(t===RP||t.id==='rpclose'){RP.hidden=true;return}
+ if(t.dataset.f){rpFam=t.dataset.f;drawPick();return}
+ let nr=null;if(t.dataset.n)nr=ROWLIB[rpFam][t.dataset.n]();else if(t.id==='rpempty')nr=row({});
+ if(nr){S.rows[rpRow]=nr;S.preset='';preI.value='';sel={r:rpRow,i:0};lastGroup.length=0;RP.hidden=true;refreshAll()}});
 const IB=document.getElementById('infobox'),IT=document.getElementById('itxt');
 document.addEventListener('click',e=>{const b=e.target.closest('.info');if(!b)return;e.stopPropagation();const [t,ps]=INFO[b.dataset.topic];IT.innerHTML=`<span class="ttl">${t}</span>`+ps.map(p=>`<p>${p==='__legend__'?legend():p}</p>`).join('');IB.hidden=false},true);
 document.getElementById('iclose').onclick=()=>{IB.hidden=true};
