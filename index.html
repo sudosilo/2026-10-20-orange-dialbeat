@@ -31,7 +31,7 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 .blk.none svg{opacity:.45}
 .blk svg{width:100%;max-width:60px;height:auto;display:block;margin:0 auto}
 .blk .nm{font-size:10px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#spin{margin-top:20px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+#spin{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
 #spin svg{width:280px;max-width:100%;display:block;margin:0 auto 12px}
 #lever{cursor:pointer}
 #rowbar{display:flex;gap:8px;margin-top:14px}
@@ -44,12 +44,25 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 #bw svg{width:220px;max-width:100%;display:block;margin:0 auto 10px}
 .info{width:16px;height:16px;padding:0;border-radius:50%;font-weight:700;color:#9a9188;border-color:#cfc4b8;font-size:9px;line-height:1;flex:none}
 #burger{margin-left:auto;font-size:18px;line-height:1;padding:6px 10px}
-#rowbar,#ed,#spin,#toys{zoom:.8}
+#rowbar,#ed,#toys{zoom:.8}
 #toys{margin-top:28px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
 .toygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .toy{border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
 .tsvg svg{width:100%;max-width:240px;cursor:pointer}
 .tsvg .fx{opacity:0;transition:opacity .08s}
+.chest{cursor:pointer;text-align:center}
+.chest svg{width:220px;max-width:70%;display:block;margin:0 auto}
+.chest .lid{transform-box:view-box;transform-origin:30px 56px;transition:transform .35s ease-out}
+.chest.open .lid{transform:rotate(-24deg)}
+.chest .peek{opacity:0;transition:opacity .3s}.chest.open .peek{opacity:1}
+.chesthint{font-size:12px;color:var(--mute);margin-top:2px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:12px}
+.thumb{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;position:relative;font-size:12px}
+.thumb.sel{border-color:var(--acc);background:var(--sel)}
+.thumb .tt svg{width:80px;height:52px;pointer-events:none}
+.thumb .fx{display:none}
+.thumb em{position:absolute;top:3px;right:4px;font-style:normal;font-size:9px;background:var(--acc);color:#fff;border-radius:6px;padding:1px 4px}
+#tbcard .toy{margin-top:12px}
 .tsvg.on .fx{opacity:1}
 .chick{transform-box:view-box;transform-origin:110px 100px;transition:transform .12s}.tsvg.on .chick{transform:scale(1.06,.82)}
 .wheel{transform-box:view-box;transform-origin:100px 65px}.tsvg.on .wheel{animation:wspin 1.25s ease-in-out}@keyframes wspin{to{transform:rotate(900deg)}}
@@ -90,8 +103,7 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 <div class="sechead"><button class="info" data-topic="rows">i</button></div>
 <div id="queue"></div>
 <div id="rowbar"><button id="addrow">Add row</button></div>
-<div id="spin"></div>
-<div id="toys"></div>
+<div id="toys"><div id="tbhead"></div><div id="tbgrid"></div><div id="tbcard"></div><div id="spin"></div></div>
 <div id="ed"></div>
 </main>
 <div id="menu" class="sheet" hidden><div class="ibody"><span class="ttl">Menu</span>
@@ -539,7 +551,19 @@ function toyFire(id,t){const x=TOYS.find(q=>q.id===id);if(!x)return;let snd=id,d
  if(id==='xylo'){[0,2,4,7,12].forEach((n,k)=>toyNote('xylo',n,t+k*.07));if(!OFF)toyQ.push({t,id});return}
  if(id==='piano'){[[0,0],[4,.18],[7,.36],[12,.54]].forEach(([n,d])=>toyNote('toypiano',n,t+d));if(!OFF)toyQ.push({t,id});return}
  if(id==='mega')snd=MEGA[(LIVE.toys&&LIVE.toys.mp|0)%4][0];if(id==='groan'){snd=groanFlip?'groanup':'groan';groanFlip=!groanFlip;dt=.3}const P=params(sg(snd));trigger({sound:snd},t+dt,P,-1);if(!OFF)toyQ.push({t,id})}
-function renderToys(){if(!S.toys)S.toys=toyDef();const el=document.getElementById('toys');el.innerHTML=`<div class="row"><span class="ttl">Toy box</span><button class="info" data-topic="toys">i</button></div><div class="toygrid">${TOYS.map(x=>`<div class="toy" data-toy="${x.id}"><div class="tsvg" data-fire="${x.id}">${x.svg}</div><div class="tname">${x.name}</div><div class="tera">${x.era}</div>${x.id==='mega'?`<div class="row" style="justify-content:center">${MEGA.map((m,i)=>`<button data-mp="${i}" class="${(S.toys.mp|0)===i?'go':''}">${m[1]}</button>`).join('')}</div>`:''}<div class="row" style="justify-content:center"><button class="go" data-fire="${x.id}">Fire</button><label>Every <input type="number" min="0" max="100" data-every="${x.id}" value="${S.toys[x.id]|0}"> bars</label></div></div>`).join('')}</div>`}
+let BOX={open:false,sel:null};try{Object.assign(BOX,JSON.parse(localStorage.getItem('dialqueueBox'))||{})}catch(e){}
+function saveBox(){try{localStorage.setItem('dialqueueBox',JSON.stringify(BOX))}catch(e){}}
+const CHEST=`<svg viewBox="0 0 240 150"><g class="peek"><rect x="70" y="40" width="14" height="40" rx="3" fill="#339af0" transform="rotate(-12 77 60)"/><circle cx="150" cy="44" r="14" fill="#ffd43b" stroke="#e67700" stroke-width="2"/><path d="M158 34 l12 3 l-12 5Z" fill="#ff922b"/><rect x="104" y="36" width="28" height="12" rx="4" fill="#94d82d"/></g><rect x="30" y="62" width="180" height="80" rx="8" fill="#ffd8a8" stroke="#c85d0a" stroke-width="3"/><path d="M30 88 H210 M30 114 H210" stroke="#f0a35e" stroke-width="2"/><text x="120" y="110" text-anchor="middle" font-size="26" font-weight="800" fill="#c85d0a" letter-spacing="4">TOYS</text><g class="lid"><rect x="24" y="44" width="192" height="22" rx="8" fill="#ffc078" stroke="#c85d0a" stroke-width="3"/><rect x="108" y="58" width="24" height="10" rx="3" fill="#c85d0a"/></g></svg>`;
+const SPINTHUMB=`<svg viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="16" fill="#f07a1a"/><circle cx="50" cy="50" r="34" fill="#fff7ef"/>${['#ffe8cc','#fff3bf','#d3f9d8','#d0ebff','#ffdeeb','#e5dbff','#c3fae8','#fff0f6'].map((c,i)=>{const a0=(i*45-22.5)*Math.PI/180,a1=(i*45+22.5)*Math.PI/180;return`<path d="M50 50L${(50+Math.sin(a0)*32).toFixed(1)} ${(50-Math.cos(a0)*32).toFixed(1)}A32 32 0 0 1 ${(50+Math.sin(a1)*32).toFixed(1)} ${(50-Math.cos(a1)*32).toFixed(1)}Z" fill="${c}"/>`}).join('')}<polygon points="50,22 46,50 54,50" fill="#22201d"/><circle cx="50" cy="50" r="6" fill="#c85d0a"/></svg>`;
+function toyAuto(id){return id==='spinner'?!!(S.spin&&S.spin.on):(S.toys[id]|0)>0}
+function renderToys(){if(!S.toys)S.toys=toyDef();
+ document.getElementById('tbhead').innerHTML=`<div class="row"><span class="ttl">Toy box</span><button class="info" data-topic="toys">i</button></div><div id="chest" class="chest${BOX.open?' open':''}">${CHEST}<div class="chesthint">${BOX.open?'Tap the box to close it':'Tap the box to open it'}</div></div>`;
+ const items=[{id:'spinner',name:'Animal spinner',svg:SPINTHUMB}].concat(TOYS);
+ document.getElementById('tbgrid').innerHTML=BOX.open?`<div class="thumbs">${items.map(x=>`<button class="thumb${BOX.sel===x.id?' sel':''}" data-pick="${x.id}"><div class="tt">${x.svg}</div><span>${x.name}</span>${toyAuto(x.id)?'<em>auto</em>':''}</button>`).join('')}</div>`:'';
+ const x=BOX.open&&BOX.sel&&BOX.sel!=='spinner'?TOYS.find(q=>q.id===BOX.sel):null;
+ document.getElementById('tbcard').innerHTML=x?`<div class="toy" data-toy="${x.id}"><div class="tsvg" data-fire="${x.id}">${x.svg}</div><div class="tname">${x.name}</div><div class="tera">${x.era}</div>${x.id==='mega'?`<div class="row" style="justify-content:center">${MEGA.map((m,i)=>`<button data-mp="${i}" class="${(S.toys.mp|0)===i?'go':''}">${m[1]}</button>`).join('')}</div>`:''}<div class="row" style="justify-content:center"><button class="go" data-fire="${x.id}">Fire</button><label>Every <input type="number" min="0" max="100" data-every="${x.id}" value="${S.toys[x.id]|0}"> bars</label><button id="putback">Put back</button></div></div>`:'';
+ document.getElementById('spin').style.display=BOX.open&&BOX.sel==='spinner'?'':'none';
+}
 let spinQ=[],spinAng=0,anim=null;
 function spinFire(t){const sp=LIVE.spin;let i;if(sp.mode==='same')i=+sp.animal||0;else if(sp.mode==='order'){sp.idx=(sp.idx+1)%8;i=sp.idx}else i=Math.floor(Math.random()*8);
  const nm=ANIMALS[i][0],snd=ANIMALS[i][1],narr=sp.narr&&!OFF&&('speechSynthesis' in window),delay=narr?.85:0;
@@ -589,7 +613,7 @@ function spinSVG(){const cx=135,cy=130,r=100,pas=['#ffe8cc','#fff3bf','#d3f9d8',
  s+=`<g id="arrow" transform="rotate(${spinAng%360} ${cx} ${cy})"><polygon points="${cx},58 ${cx-9},${cy} ${cx+9},${cy}" fill="#22201d"/><circle cx="${cx}" cy="${cy}" r="16" fill="#c85d0a"/></g>`;
  s+=`<rect x="266" y="50" width="12" height="160" rx="6" fill="#eadfd3"/><g id="lever"><line x1="272" y1="70" x2="272" y2="96" stroke="#776f66" stroke-width="5"/><circle cx="272" cy="64" r="16" fill="#e5322d"/></g></svg>`;return s}
 function renderSpin(){const sp=S.spin,el=document.getElementById('spin');
- el.innerHTML=`<div class="row"><span class="ttl">Spinner</span><button class="info" data-topic="spinner">i</button><button id="spon" class="${sp.on?'go':''}">${sp.on?'On':'Off'}</button><button id="spull">Pull</button></div>${spinSVG()}
+ el.innerHTML=`<div class="row"><span class="ttl">Spinner</span><button class="info" data-topic="spinner">i</button><button id="spon" class="${sp.on?'go':''}">${sp.on?'On':'Off'}</button><button id="spull">Pull</button><button id="spinback">Put back</button></div>${spinSVG()}
  <div class="row"><label>Mode <select id="spmode">${opts([['random','Random'],['order','In order'],['same','Same animal']],sp.mode)}</select></label>${sp.mode==='same'?`<select id="spani">${opts(ANIMALS.map((a,i)=>[String(i),a[0]]),String(sp.animal))}</select>`:''}</div>
  <div class="row"><label>Every <input id="spev" type="number" min="1" max="100" value="${sp.every}"> bars</label><label>Repeats <input id="sprep" type="number" min="1" max="8" value="${sp.reps}"></label></div>
  <div class="row"><label>Volume <input id="spvol" type="number" min="0" max="150" value="${sp.vol}"></label><button id="spnar">${sp.narr?'Narrator on':'Narrator off'}</button></div>`}
@@ -656,12 +680,12 @@ function frame(){let h=null,fr=0,now=0;
  E.querySelectorAll('.lane').forEach(ln=>{const l=cur().lanes[+ln.dataset.l];if(l){const tx=`now ${Math.round(laneValue(l,s.pos,s.notches))}${FX[l.fx].u}`,el=ln.querySelector('.now');if(el.textContent!==tx)el.textContent=tx}});
  if(ac){while(spinQ.length&&spinQ[0].t<=ac.currentTime){const q=spinQ.shift();anim={from:spinAng,to:Math.ceil(spinAng/360)*360+720+q.i*45,st:performance.now()}}}
  if(anim){const p=Math.min(1,(performance.now()-anim.st)/900),e2=1-Math.pow(1-p,3);spinAng=anim.from+(anim.to-anim.from)*e2;const ar=document.getElementById('arrow'),lv=document.getElementById('lever');if(ar)ar.setAttribute('transform',`rotate(${spinAng%360} 135 130)`);if(lv)lv.setAttribute('transform',`translate(0 ${(Math.sin(Math.min(1,p*3)*Math.PI)*110).toFixed(1)})`);if(p>=1){anim=null;spinAng%=360}}
- if(ac){while(toyQ.length&&toyQ[0].t<=ac.currentTime){const q=toyQ.shift();if(q.id==='note'){const ke=document.querySelector(`.key[data-note="${q.key}"]`);if(ke){ke.classList.add('hit');clearTimeout(ke._tm);ke._tm=setTimeout(()=>ke.classList.remove('hit'),160)}continue}const el=document.querySelector(`.tsvg[data-fire="${q.id}"]`);if(el&&q.id==='groan'){el.classList.toggle('up')}else if(el){el.classList.add('on');clearTimeout(el._tm);el._tm=setTimeout(()=>el.classList.remove('on'),({spark:520,chicken:600,spokes:1250})[q.id]||320)}}}
+ if(ac){while(toyQ.length&&toyQ[0].t<=ac.currentTime){const q=toyQ.shift();if(q.id==='note'){const ke=document.querySelector(`#tbcard .key[data-note="${q.key}"]`);if(ke){ke.classList.add('hit');clearTimeout(ke._tm);ke._tm=setTimeout(()=>ke.classList.remove('hit'),160)}continue}const el=document.querySelector(`.tsvg[data-fire="${q.id}"]`);if(el&&q.id==='groan'){el.classList.toggle('up')}else if(el){el.classList.add('on');clearTimeout(el._tm);el._tm=setTimeout(()=>el.classList.remove('on'),({spark:520,chicken:600,spokes:1250})[q.id]||320)}}}
  if(recording)recB.textContent=`Stop rec ${Math.floor((Date.now()-recStart)/1000)}s`;
  requestAnimationFrame(frame)}
 const INFO={
 top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','Bounce builds the pattern offline, faster than it plays, and saves a WAV file of the length you pick. It never stutters, even on the heaviest patterns. The wheels go back to where they were afterward.','Launch sets when changes drop in while playing. Every change you make, from a new preset to one notch or one effect value, waits in a queue and lands together on the next step, beat, bar, 2 bars or 4 bars, so the groove never breaks. The orange note next to it shows when something is waiting. When stopped, changes apply right away.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','The menu button holds Save, your saved presets, Reset wheels and Clear. Save keeps the whole beat on this phone under the name you type. Load drops it in on the next launch point. Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
-toys:['Toy box',['Each toy brings back the sound of a real kind of toy from its era. Tap the toy or Fire to set it off.','The rubber chicken squeezes air through the reed in its rubber body: a nasal scream that jumps up and sags back down.','Bike spokes is a playing card clipped to the fork. The wheel spins up and slows down, so the flaps speed up and then ease off.','The spark gun is the early 80s kind, where pulling the trigger spun a flint wheel against a ratchet inside a tin body, so you hear rapid clicks, crackling sparks and the tin ringing.','The groan tube is the sealed plastic tube with a reed and a sliding weight inside. Each time it fires, it tips 90 degrees, the weight slides down and pushes air past the reed, and the tube moans. Every other tip flips it back the other way, so the moan rises instead of falls.','The toy xylophone has painted metal bars, slightly out of tune like the real thing. Tap any bar to play it, or Fire for a quick run up the bars.','The toy piano has little hammers striking metal rods, so it rings like a bell with a wooden thump from the keys. Tap any key, black ones too, or Fire for a little arpeggio.','The megaphone is the late 90s toy cop kind, pushed through a tiny crunchy horn speaker. Tap Wail, Yelp, Horn or Hi lo to sound it and pick it, and Fire or Every plays the one you picked.','The laser gun is the mid 90s kind, with a chip and a tiny speaker playing a stored pew: a square wave diving in pitch with a fast warble, crunched down like a cheap speaker.','Every fires the toy on its own every so many bars while the beat plays. 0 turns that off.','Both sounds also live in the Toys family, so any block can use them with all the wheel assignments.']],
+toys:['Toy box',['Tap the toy box to open it, then tap a toy to take it out. Only one toy is out at a time, and Put back returns it. A toy marked auto keeps firing on its schedule even while it sits in the box. Tap the box again to close it.','Each toy brings back the sound of a real kind of toy from its era. Tap the toy or Fire to set it off.','The rubber chicken squeezes air through the reed in its rubber body: a nasal scream that jumps up and sags back down.','Bike spokes is a playing card clipped to the fork. The wheel spins up and slows down, so the flaps speed up and then ease off.','The spark gun is the early 80s kind, where pulling the trigger spun a flint wheel against a ratchet inside a tin body, so you hear rapid clicks, crackling sparks and the tin ringing.','The groan tube is the sealed plastic tube with a reed and a sliding weight inside. Each time it fires, it tips 90 degrees, the weight slides down and pushes air past the reed, and the tube moans. Every other tip flips it back the other way, so the moan rises instead of falls.','The toy xylophone has painted metal bars, slightly out of tune like the real thing. Tap any bar to play it, or Fire for a quick run up the bars.','The toy piano has little hammers striking metal rods, so it rings like a bell with a wooden thump from the keys. Tap any key, black ones too, or Fire for a little arpeggio.','The megaphone is the late 90s toy cop kind, pushed through a tiny crunchy horn speaker. Tap Wail, Yelp, Horn or Hi lo to sound it and pick it, and Fire or Every plays the one you picked.','The laser gun is the mid 90s kind, with a chip and a tiny speaker playing a stored pew: a square wave diving in pitch with a fast warble, crunched down like a cheap speaker.','Every fires the toy on its own every so many bars while the beat plays. 0 turns that off.','Both sounds also live in the Toys family, so any block can use them with all the wheel assignments.']],
 spinner:['Spinner',['Pull the lever or tap Pull, and the arrow spins and lands on an animal. The narrator names it, then the animal answers.','While the pattern plays, the spinner fires on its own every so many bars. Set Every from 1 to 100.','Random picks any animal. In order goes around the wheel. Same animal always lands on the one you choose.','Repeats plays the answer 1 to 8 times in a row. Volume runs 0 to 150.','The animal sounds land in Rec and Bounce. The narrator voice comes from your phone and plays live only.']],
 rows:['Rows',['Each row is a line of blocks with its own red line. All rows play at the same time.','A row can be 1 to 16 blocks long. Rows of different lengths drift apart and line up again later, which keeps the pattern changing.','The wheel in each block shows its current notch out of its total. The color shows which sound is in the block.','Tap any block to edit it below. Add row adds up to 6 rows.','The colored bar on the left of each row shows its instrument family. Tap it to load a row preset: pick a family across the top, then a pattern. Only that row changes.']],
 block:['Block and row settings',['Notches sets how many positions the wheel has, from 1 to 360.','Each time the red line crosses the block, it plays at the current notch, then the wheel turns. It turns 1 notch unless an advance assignment says otherwise.','Notch back, Notch forward and To notch 1 move the wheel by hand.','Row length, Choke, Mute row and Remove row change the whole row. Choke makes each new hit in the row stop the one before it, which sharpens the gaps.']],
@@ -691,7 +715,10 @@ document.addEventListener('click',e=>{const b=e.target.closest('.info');if(!b)re
 document.getElementById('iclose').onclick=()=>{IB.hidden=true};
 IB.addEventListener('click',e=>{if(e.target===IB)IB.hidden=true});
 const TB=document.getElementById('toys');
-TB.addEventListener('click',e=>{const k=e.target.closest('[data-note]');if(k){e.stopPropagation();initAudio();ac.resume();const[sn,n]=k.dataset.note.split(':');toyNote(sn,+n,ac.currentTime+.02);return}
+TB.addEventListener('click',e=>{if(e.target.closest('#chest')){BOX.open=!BOX.open;if(!BOX.open)BOX.sel=null;saveBox();renderToys();return}
+ const th=e.target.closest('.thumb');if(th){BOX.sel=BOX.sel===th.dataset.pick?null:th.dataset.pick;saveBox();renderToys();return}
+ if(e.target.id==='putback'||e.target.id==='spinback'){BOX.sel=null;saveBox();renderToys();return}
+ const k=e.target.closest('[data-note]');if(k){e.stopPropagation();initAudio();ac.resume();const[sn,n]=k.dataset.note.split(':');toyNote(sn,+n,ac.currentTime+.02);return}
  const m=e.target.closest('[data-mp]');if(m){initAudio();ac.resume();S.toys.mp=+m.dataset.mp;LIVE.toys&&(LIVE.toys.mp=S.toys.mp);const P=params(sg(MEGA[S.toys.mp][0]));trigger({sound:MEGA[S.toys.mp][0]},ac.currentTime+.02,P,-1);toyQ.push({t:ac.currentTime+.02,id:'mega'});renderToys();try{localStorage.setItem('dialqueue3',JSON.stringify(S))}catch(err){}return}
  const f=e.target.closest('[data-fire]');if(!f)return;initAudio();ac.resume();toyFire(f.dataset.fire,ac.currentTime+.02)});
 TB.addEventListener('input',e=>{const t=e.target;if(!t.dataset.every)return;const v=parseInt(t.value);if(v>=0&&v<=100){S.toys[t.dataset.every]=v;save()}});
