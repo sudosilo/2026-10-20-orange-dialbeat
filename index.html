@@ -42,7 +42,11 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 .lane input.vals{flex:1;min-width:140px}
 .lane .now{font-size:12px;color:var(--accd);min-width:64px}
 #bw svg{width:220px;max-width:100%;display:block;margin:0 auto 10px}
-.info{width:30px;height:30px;padding:0;border-radius:50%;font-weight:700;color:var(--accd);border-color:var(--acc);font-size:15px;line-height:1}
+.info{width:16px;height:16px;padding:0;border-radius:50%;font-weight:700;color:#9a9188;border-color:#cfc4b8;font-size:9px;line-height:1;flex:none}
+#burger{margin-left:auto;font-size:18px;line-height:1;padding:6px 10px}
+#rowbar,#ed,#spin{zoom:.8}
+#rowbar{margin-top:20px}#ed{margin-top:28px}#spin{margin-top:28px}
+.saved{display:flex;gap:6px;align-items:center;margin-bottom:6px}.saved span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sechead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:var(--mute)}
 #infobox,.sheet{position:fixed;inset:0;background:rgba(34,32,29,.35);display:flex;align-items:flex-end;justify-content:center;z-index:10}
 #infobox[hidden],.sheet[hidden]{display:none}
@@ -64,17 +68,20 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 <label>Preset <select id="pre"></select></label>
 <label>Launch <select id="qn"><option value="0">Now</option><option value="0.25">Beat</option><option value="1">Bar</option><option value="2">2 bars</option><option value="4">4 bars</option></select></label>
 <span id="qst" style="font-size:13px;font-weight:600;color:var(--accd)"></span>
-<button id="rst">Reset wheels</button>
-<button id="clr">Clear</button>
 <button class="info" data-topic="top">i</button>
+<button id="burger" aria-label="Menu">&#9776;</button>
 </header>
 <main>
-<div class="sechead"><span>Rows</span><button class="info" data-topic="rows">i</button></div>
+<div class="sechead"><button class="info" data-topic="rows">i</button></div>
 <div id="queue"></div>
 <div id="rowbar"><button id="addrow">Add row</button></div>
 <div id="spin"></div>
 <div id="ed"></div>
 </main>
+<div id="menu" class="sheet" hidden><div class="ibody"><span class="ttl">Menu</span>
+<div class="row"><input id="svname" placeholder="Preset name" style="flex:1;min-width:0"><button id="svbtn" class="go">Save</button></div>
+<div id="svlist"></div>
+<div class="row"><button id="rst">Reset wheels</button><button id="clr">Clear</button><button id="mclose">Close</button></div></div></div>
 <div id="rowpick" class="sheet" hidden><div class="ibody"><span class="ttl" id="rpt"></span><div id="rpfam" class="row"></div><div id="rplist"></div><div class="row"><button id="rpempty">Empty row</button><button id="rpclose" class="go">Close</button></div></div></div>
 <div id="infobox" hidden><div class="ibody"><div id="itxt"></div><button id="iclose" class="go">Close</button></div></div>
 <script>
@@ -487,7 +494,7 @@ function frame(){let h=null,fr=0,now=0;
  if(recording)recB.textContent=`Stop rec ${Math.floor((Date.now()-recStart)/1000)}s`;
  requestAnimationFrame(frame)}
 const INFO={
-top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','Bounce builds the pattern offline, faster than it plays, and saves a WAV file of the length you pick. It never stutters, even on the heaviest patterns. The wheels go back to where they were afterward.','Launch sets when changes drop in while playing. Every change you make, from a new preset to one notch or one effect value, waits in a queue and lands together on the next step, beat, bar, 2 bars or 4 bars, so the groove never breaks. The orange note next to it shows when something is waiting. When stopped, changes apply right away.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
+top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','Bounce builds the pattern offline, faster than it plays, and saves a WAV file of the length you pick. It never stutters, even on the heaviest patterns. The wheels go back to where they were afterward.','Launch sets when changes drop in while playing. Every change you make, from a new preset to one notch or one effect value, waits in a queue and lands together on the next step, beat, bar, 2 bars or 4 bars, so the groove never breaks. The orange note next to it shows when something is waiting. When stopped, changes apply right away.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','The menu button holds Save, your saved presets, Reset wheels and Clear. Save keeps the whole beat on this phone under the name you type. Load drops it in on the next launch point. Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
 spinner:['Spinner',['Pull the lever or tap Pull, and the arrow spins and lands on an animal. The narrator names it, then the animal answers.','While the pattern plays, the spinner fires on its own every so many bars. Set Every from 1 to 100.','Random picks any animal. In order goes around the wheel. Same animal always lands on the one you choose.','Repeats plays the answer 1 to 8 times in a row. Volume runs 0 to 150.','The animal sounds land in Rec and Bounce. The narrator voice comes from your phone and plays live only.']],
 rows:['Rows',['Each row is a line of blocks with its own red line. All rows play at the same time.','A row can be 1 to 16 blocks long. Rows of different lengths drift apart and line up again later, which keeps the pattern changing.','The wheel in each block shows its current notch out of its total. The color shows which sound is in the block.','Tap any block to edit it below. Add row adds up to 6 rows.','The colored bar on the left of each row shows its instrument family. Tap it to load a row preset: pick a family across the top, then a pattern. Only that row changes.']],
 block:['Block and row settings',['Notches sets how many positions the wheel has, from 1 to 360.','Each time the red line crosses the block, it plays at the current notch, then the wheel turns. It turns 1 notch unless an advance assignment says otherwise.','Notch back, Notch forward and To notch 1 move the wheel by hand.','Row length, Choke, Mute row and Remove row change the whole row. Choke makes each new hit in the row stop the one before it, which sharpens the gaps.']],
@@ -503,6 +510,15 @@ RP.addEventListener('click',e=>{const t=e.target;if(t===RP||t.id==='rpclose'){RP
  if(t.dataset.f){rpFam=t.dataset.f;drawPick();return}
  let nr=null;if(t.dataset.n)nr=ROWLIB[rpFam][t.dataset.n]();else if(t.id==='rpempty')nr=row({});
  if(nr){rebase=true;S.rows[rpRow]=nr;S.preset='';preI.value='';sel={r:rpRow,i:0};lastGroup.length=0;RP.hidden=true;refreshAll()}});
+const MENU=document.getElementById('menu');
+function loadSaved(){try{return JSON.parse(localStorage.getItem('dialqueueSaved'))||{}}catch(e){return{}}}
+function drawSaved(){const sv=loadSaved(),ks=Object.keys(sv);document.getElementById('svlist').innerHTML=ks.length?ks.map(k=>`<div class="saved"><span>${k.replace(/</g,'&lt;')}</span><button data-load="${encodeURIComponent(k)}">Load</button><button data-del="${encodeURIComponent(k)}">Delete</button></div>`).join(''):'<p class="hint" style="font-size:13px;color:var(--mute)">Saved presets show here.</p>'}
+document.getElementById('burger').onclick=()=>{drawSaved();MENU.hidden=false};
+MENU.addEventListener('click',e=>{const t=e.target;if(t===MENU||t.id==='mclose'){MENU.hidden=true;return}
+ if(t.id==='rst'||t.id==='clr'){MENU.hidden=true;return}
+ if(t.id==='svbtn'){const n=document.getElementById('svname').value.trim();if(!n)return;const sv=loadSaved();sv[n]=clone(S);try{localStorage.setItem('dialqueueSaved',JSON.stringify(sv))}catch(err){}document.getElementById('svname').value='';drawSaved();return}
+ if(t.dataset.load){const sv=loadSaved(),k=decodeURIComponent(t.dataset.load);if(sv[k]){S=clone(sv[k]);S.preset='';if(!S.spin)S.spin=spinDef();preI.value='';bpmI.value=S.bpm;divI.value=S.div;sel={r:0,i:0};rebase=true;MENU.hidden=true;refreshAll()}return}
+ if(t.dataset.del){const sv=loadSaved();delete sv[decodeURIComponent(t.dataset.del)];try{localStorage.setItem('dialqueueSaved',JSON.stringify(sv))}catch(err){}drawSaved()}},true);
 const IB=document.getElementById('infobox'),IT=document.getElementById('itxt');
 document.addEventListener('click',e=>{const b=e.target.closest('.info');if(!b)return;e.stopPropagation();const [t,ps]=INFO[b.dataset.topic];IT.innerHTML=`<span class="ttl">${t}</span>`+ps.map(p=>`<p>${p==='__legend__'?legend():p}</p>`).join('');IB.hidden=false},true);
 document.getElementById('iclose').onclick=()=>{IB.hidden=true};
