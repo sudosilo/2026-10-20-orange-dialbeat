@@ -44,7 +44,15 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 #bw svg{width:220px;max-width:100%;display:block;margin:0 auto 10px}
 .info{width:16px;height:16px;padding:0;border-radius:50%;font-weight:700;color:#9a9188;border-color:#cfc4b8;font-size:9px;line-height:1;flex:none}
 #burger{margin-left:auto;font-size:18px;line-height:1;padding:6px 10px}
-#rowbar,#ed,#spin{zoom:.8}
+#rowbar,#ed,#spin,#toys{zoom:.8}
+#toys{margin-top:28px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.toygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.toy{border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.tsvg svg{width:100%;max-width:240px;cursor:pointer}
+.tsvg .fx{opacity:0;transition:opacity .08s}
+.tsvg.on .fx{opacity:1}
+.tname{font-weight:600}
+.tera{font-size:12px;color:var(--mute);margin-bottom:6px}
 #rowbar{margin-top:20px}#ed{margin-top:28px}#spin{margin-top:28px}
 .saved{display:flex;gap:6px;align-items:center;margin-bottom:6px}.saved span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sechead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;color:var(--mute)}
@@ -76,6 +84,7 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 <div id="queue"></div>
 <div id="rowbar"><button id="addrow">Add row</button></div>
 <div id="spin"></div>
+<div id="toys"></div>
 <div id="ed"></div>
 </main>
 <div id="menu" class="sheet" hidden><div class="ibody"><span class="ttl">Menu</span>
@@ -86,8 +95,8 @@ main{padding:20px 16px;max-width:900px;margin:0 auto}
 <div id="infobox" hidden><div class="ibody"><div id="itxt"></div><button id="iclose" class="go">Close</button></div></div>
 <script>
 const FX={echo:{min:0,max:100,def:0,u:'%'},room:{min:0,max:100,def:0,u:'%'},spread:{min:0,max:100,def:0,u:'%'},tremolo:{min:0,max:100,def:0,u:'%'},tremrate:{min:1,max:30,def:8,u:'Hz'},filter:{min:0,max:100,def:100,u:'%'},reso:{min:0,max:30,def:1,u:'Q'},pitch:{min:-24,max:24,def:0,u:'st'},volume:{min:0,max:150,def:100,u:'%'},pan:{min:-100,max:100,def:0,u:''},drive:{min:0,max:100,def:0,u:'%'},decay:{min:10,max:400,def:100,u:'%'},tone:{min:0,max:100,def:50,u:''},gate:{min:0,max:1000,def:0,u:'ms'},chance:{min:0,max:100,def:100,u:'%'},advance:{min:0,max:64,def:1,u:''},ratchet:{min:1,max:16,def:1,u:'x'},span:{min:1,max:16,def:1,u:' steps'},accel:{min:-90,max:90,def:0,u:''},fall:{min:0,max:90,def:0,u:'%'},rpitch:{min:-12,max:12,def:0,u:'st'}};
-const FAM={'808':['kick','snare','hat','openhat','clap','tom','rim','cowbell'],Glass:['glass','wineglass','bottle','chime'],Wood:['wood','block','marimba','clave'],Metal:['steel','pin','ball','bell'],Ceramic:['ceramic','cup','plate'],Bass:['bass','sub','growl','wobble'],Synth:['stab','pluck','supersaw','acid','chord'],Reed:['sax','clarinet','flute'],FX:['zap','ping','sweep'],Animal:['moo','meow','bark','yip','quack','oink','baa','chirp','ribbit']};
-const FAMCOL={'808':'#e8590c',Glass:'#0ea5b7',Wood:'#8b5a2b',Metal:'#5f6b76',Ceramic:'#e64980',Bass:'#7048e8',Synth:'#e03131',Reed:'#2f9e44',FX:'#ae3ec9',Animal:'#8a9a00',Empty:'#cfc4b8'};
+const FAM={'808':['kick','snare','hat','openhat','clap','tom','rim','cowbell'],Glass:['glass','wineglass','bottle','chime'],Wood:['wood','block','marimba','clave'],Metal:['steel','pin','ball','bell'],Ceramic:['ceramic','cup','plate'],Bass:['bass','sub','growl','wobble'],Synth:['stab','pluck','supersaw','acid','chord'],Reed:['sax','clarinet','flute'],FX:['zap','ping','sweep'],Toys:['spark','laser'],Animal:['moo','meow','bark','yip','quack','oink','baa','chirp','ribbit']};
+const FAMCOL={'808':'#e8590c',Glass:'#0ea5b7',Wood:'#8b5a2b',Metal:'#5f6b76',Ceramic:'#e64980',Bass:'#7048e8',Synth:'#e03131',Reed:'#2f9e44',FX:'#ae3ec9',Toys:'#343a40',Animal:'#8a9a00',Empty:'#cfc4b8'};
 const SOUNDS=[].concat(...Object.values(FAM),['none']);
 function famOf(x){for(const f in FAM)if(FAM[f].includes(x))return f;return null}
 function rowFam(rw){for(let i=0;i<rw.len;i++){const f=famOf(rw.segs[i].sound);if(f)return f}return 'Empty'}
@@ -96,7 +105,7 @@ const MAT={steel:{f:440,r:[1,2.76,5.40,8.93,13.34],a:[1,.6,.4,.25,.15],d:[1.8,1.
 wineglass:{f:1320,r:[1,2.32,4.25],a:[1,.35,.12],d:[2.6,1.4,.6],c:9000},bottle:{f:330,r:[1,2.8,5.1],a:[1,.25,.1],d:[.35,.15,.08],c:1800},chime:{f:1046,r:[1,2.76,5.40,8.93],a:[1,.5,.3,.15],d:[3,2,1.2,.6],c:9000},
 block:{f:900,r:[1,2.67,4.12],a:[1,.4,.2],d:[.08,.04,.03],c:4000},marimba:{f:262,r:[1,3.93,9.8],a:[1,.25,.08],d:[.9,.2,.08],c:1500},clave:{f:2500,r:[1,2.1],a:[1,.3],d:[.07,.03],c:5000},
 bell:{f:523,r:[.5,1,1.19,1.56,2,2.51],a:[.6,1,.7,.5,.6,.3],d:[3,2.5,2,1.6,1.2,1],c:6000},cup:{f:990,r:[1,1.59,2.14],a:[1,.6,.3],d:[.35,.25,.15],c:6000},plate:{f:520,r:[1,1.47,2.09,2.56,3.2],a:[1,.8,.6,.4,.3],d:[.9,.7,.5,.4,.3],c:5000}};
-const COL={kick:'#e8590c',snare:'#c92a2a',hat:'#f59f00',openhat:'#e67700',clap:'#d9480f',tom:'#a0522d',rim:'#b5651d',cowbell:'#c99700',glass:'#0ea5b7',wineglass:'#22b8cf',bottle:'#0c8599',chime:'#1098ad',wood:'#8b5a2b',block:'#a9713c',marimba:'#6f4518',clave:'#c08a4e',steel:'#5f6b76',pin:'#339af0',ball:'#4c6ef5',bell:'#364fc7',ceramic:'#e64980',cup:'#f06595',plate:'#c2255c',bass:'#7048e8',sub:'#5f3dc4',growl:'#9775fa',wobble:'#845ef7',stab:'#e03131',pluck:'#fa5252',supersaw:'#b02525',acid:'#ff6b6b',chord:'#c43535',sax:'#2f9e44',clarinet:'#37b24d',flute:'#4caf50',zap:'#ae3ec9',ping:'#9c36b5',sweep:'#be4bdb',moo:'#6b7a00',meow:'#8a9a00',bark:'#a0a800',yip:'#99a31a',quack:'#7d8c10',oink:'#b0a000',baa:'#8f9420',chirp:'#a3b100',ribbit:'#5f7000',none:'#cfc4b8'};
+const COL={kick:'#e8590c',snare:'#c92a2a',hat:'#f59f00',openhat:'#e67700',clap:'#d9480f',tom:'#a0522d',rim:'#b5651d',cowbell:'#c99700',glass:'#0ea5b7',wineglass:'#22b8cf',bottle:'#0c8599',chime:'#1098ad',wood:'#8b5a2b',block:'#a9713c',marimba:'#6f4518',clave:'#c08a4e',steel:'#5f6b76',pin:'#339af0',ball:'#4c6ef5',bell:'#364fc7',ceramic:'#e64980',cup:'#f06595',plate:'#c2255c',bass:'#7048e8',sub:'#5f3dc4',growl:'#9775fa',wobble:'#845ef7',stab:'#e03131',pluck:'#fa5252',supersaw:'#b02525',acid:'#ff6b6b',chord:'#c43535',sax:'#2f9e44',clarinet:'#37b24d',flute:'#4caf50',zap:'#ae3ec9',ping:'#9c36b5',sweep:'#be4bdb',spark:'#868e96',laser:'#212529',moo:'#6b7a00',meow:'#8a9a00',bark:'#a0a800',yip:'#99a31a',quack:'#7d8c10',oink:'#b0a000',baa:'#8f9420',chirp:'#a3b100',ribbit:'#5f7000',none:'#cfc4b8'};
 const MAXROWS=6,MAXLEN=16;
 function L(fx,mode,a,b){return mode==='list'?{fx,mode,vals:a,from:FX[fx].min,to:FX[fx].max,sr:0,sb:0}:{fx,mode,vals:'',from:a,to:b,sr:0,sb:0}}
 function F(fx,sr,sb,a,b){return{fx,mode:'follow',vals:'',from:a,to:b,sr,sb}}
@@ -152,6 +161,9 @@ const ROWLIB={
   'Flute breath':()=>row({0:sg('flute',4,[L('pitch','list','0,7,5,12'),L('decay','list','200'),L('room','list','50')]),5:sg('flute',3,[L('pitch','list','3,10,7'),L('decay','list','120'),L('volume','list','50'),L('echo','list','40')])})},
  Synth:{'Acid line':ACID,'Trance gate':TGATE,'Pluck arp':PARP,'Pad chords':PADS,
   'House stabs':()=>row({3:sg('stab',4,[L('pitch','list','0,0,-2,-4'),L('room','list','30'),L('echo','list','25'),L('volume','list','60')]),10:sg('stab',4,[L('pitch','list','0,3,-2,0'),L('volume','list','45'),L('gate','list','120')])},16)},
+ Toys:{'Pew pew':()=>row({4:sg('laser',4,[L('pitch','list','0,3,-2,7'),L('volume','list','70')]),12:sg('laser',3,[L('ratchet','list','1,2,3'),L('accel','list','20'),L('pitch','list','5,0,10'),L('volume','list','60')])},16),
+  'Spark rattle':()=>row({0:sg('spark',4,[L('decay','list','100,40,60,160'),L('volume','list','70')]),10:sg('spark',2,[L('decay','list','30,50'),L('volume','list','50'),L('pan','list','-40,40')])},16),
+  'Laser fight':()=>row({2:sg('laser',3,[L('pan','list','-60'),L('pitch','list','0,2,4')]),6:sg('spark',2,[L('pan','list','60'),L('decay','list','50')]),11:sg('laser',4,[L('pan','list','60'),L('pitch','list','7,5,3,0'),L('ratchet','list','1,1,2,3')]),14:sg('spark',3,[L('pan','list','-60'),L('decay','list','40,30,70')])},16)},
  Animal:{'Barking hats':()=>{const m={};for(let i=0;i<16;i+=2)m[i]=sg('yip',3,[L('volume','list',i%4?'35':'60'),L('pitch','list','0,3,-2'),L('pan','list',i%4?'30':'-30')]);return row(m,16)},
   'Meow chops':()=>row({0:sg('meow',4,[L('pitch','list','0,7,5,12'),L('gate','list','90,60,120,50')]),3:sg('meow',3,[L('pitch','list','12,5,7'),L('gate','list','50'),L('volume','list','70')]),6:sg('meow',2,[L('pitch','list','-5,0'),L('ratchet','list','2'),L('accel','list','40')])}),
   'Duck pond':()=>row({1:sg('quack',4,[L('chance','list','100,50,80,30'),L('ratchet','list','1,2,3,1'),L('accel','list','40'),L('pitch','list','0,2,-2,5')]),5:sg('quack',3,[L('chance','rand',30,90),L('volume','list','60'),L('room','list','30')])}),
@@ -257,11 +269,13 @@ const PRESETS0={
   row({0:sg('ceramic',7,[L('pitch','list','0,3,7,10,12,7,3'),L('advance','list','1,2'),L('volume','list','60'),L('room','list','30')]),2:sg('wood',5,[F('pitch',0,4,-12,0),L('volume','list','70')]),6:sg('wood',1,[L('pitch','list','-12')])}),
   row({0:sg('kick',1,[L('volume','list','70')])})]}),
  'Prism':()=>{const r=dnbRows();r.push(row({0:sg('ball',8,[L('ratchet','ramp',4,16),L('span','list','8'),L('accel','list','20'),L('fall','list','10'),L('rpitch','list','0,0,1,-1'),L('volume','list','70'),L('echo','list','20'),L('room','list','25'),L('spread','list','40')]),6:sg('pin',4,[L('volume','list','0,0,0,80'),L('pitch','list','12,7'),L('echo','list','60'),L('room','list','40'),L('ratchet','list','3'),L('accel','list','60'),L('fall','list','40'),L('span','list','2')])}));return{bpm:174,div:4,rows:r}}};
-const PRESETS={};function spinDef(){return{on:false,mode:'random',animal:0,every:4,reps:1,narr:true,vol:90,idx:-1}}
-for(const k in PRESETS0)PRESETS[k]=()=>{const o=Object.assign(PRESETS0[k](),{preset:k});o.spin=Object.assign(spinDef(),o.spin||{});return o};
+const PRESETS={};function toyDef(){return{spark:0,laser:0}}
+function spinDef(){return{on:false,mode:'random',animal:0,every:4,reps:1,narr:true,vol:90,idx:-1}}
+for(const k in PRESETS0)PRESETS[k]=()=>{const o=Object.assign(PRESETS0[k](),{preset:k});o.spin=Object.assign(spinDef(),o.spin||{});o.toys=Object.assign(toyDef(),o.toys||{});return o};
 let S=null;try{S=JSON.parse(localStorage.getItem('dialqueue3'))}catch(e){}
 if(!S||!S.rows||!S.rows.length)S=PRESETS['Prism']();
 if(!S.spin)S.spin=spinDef();
+if(!S.toys)S.toys=toyDef();
 let LIVE=S,dirty=false,rebase=false,G0=0,QN=1;try{const q=localStorage.getItem('dialqueueQ');if(q!==null)QN=+q}catch(e){}
 function save(){try{localStorage.setItem('dialqueue3',JSON.stringify(S))}catch(e){}if(typeof playing!=='undefined'&&playing)dirty=true;else{LIVE=S;dirty=false;rebase=false}}
 function clone(x){return JSON.parse(JSON.stringify(x))}
@@ -341,6 +355,12 @@ function voice(sound,t,P,out){const pm=Math.pow(2,P.pitch/12),dm=P.decay/100;
  else if(sound==='sub'){const o=osc('sine',41*pm,t,.9*dm+.05,g);o.frequency.exponentialRampToValueAtTime(36*pm,t+.2);env(g,t,1,.8*dm)}
  else if(sound==='growl'){const lp=ac.createBiquadFilter();lp.type='lowpass';lp.Q.value=8;lp.frequency.setValueAtTime(1600,t);lp.frequency.exponentialRampToValueAtTime(180,t+.25*dm+.01);lp.connect(g);const d=.45*dm+.05;osc('sawtooth',55*pm,t,d,lp).detune.value=12;osc('sawtooth',55*pm,t,d,lp).detune.value=-12;env(g,t,.5,.4*dm)}
  else if(sound==='sweep'){const n=nz(t,Math.min(.95,.6*dm+.05)),bp=ac.createBiquadFilter();bp.type='bandpass';bp.Q.value=6;bp.frequency.setValueAtTime(200,t);bp.frequency.exponentialRampToValueAtTime(7000,t+.5*dm+.01);n.connect(bp);bp.connect(g);env(g,t,.6,.55*dm)}
+ else if(sound==='spark'){const d=.55*dm+.05,b1=ac.createBiquadFilter(),b2=ac.createBiquadFilter(),hp=ac.createBiquadFilter();b1.type=b2.type='bandpass';b1.frequency.value=1150*pm;b1.Q.value=7;b2.frequency.value=2650*pm;b2.Q.value=9;hp.type='highpass';hp.frequency.value=600;b1.connect(g);b2.connect(g);hp.connect(g);
+  const n=Math.max(3,Math.round(d*34));for(let k=0;k<n;k++){const tk=t+k/34+Math.random()*.006,cl=nz(tk,.006),cg=ac.createGain();cg.gain.value=.9*(1-k/n*.5);cl.connect(cg);cg.connect(b1);cg.connect(b2);if(Math.random()<.45){const sp=nz(tk+.003,.003),sg2=ac.createGain();sg2.gain.value=.5;sp.connect(sg2);sg2.connect(hp)}}
+  g.gain.setValueAtTime(1,t);g.gain.setValueAtTime(1,t+d*.85);g.gain.linearRampToValueAtTime(0,t+d)}
+ else if(sound==='laser'){const d=.32*dm+.04,o=ac.createOscillator();o.type='square';o.frequency.setValueAtTime(2400*pm,t);o.frequency.exponentialRampToValueAtTime(260*pm,t+d);const w=ac.createOscillator();w.frequency.value=28;const wg=ac.createGain();wg.gain.value=300*pm;w.connect(wg);wg.connect(o.frequency);
+  const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=450;const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=4200;const ws=ac.createWaveShaper(),c=new Float32Array(256);for(let i=0;i<256;i++){const x=i/127.5-1;c[i]=Math.round(x*6)/6}ws.curve=c;
+  o.connect(ws);ws.connect(hp);hp.connect(lp);lp.connect(g);o.start(t);w.start(t);o.stop(t+d+.02);w.stop(t+d+.02);g.gain.setValueAtTime(0.0001,t);g.gain.linearRampToValueAtTime(.22,t+.004);g.gain.setValueAtTime(.22,t+d*.8);g.gain.linearRampToValueAtTime(0,t+d)}
  else if(sound==='stab'){const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1800+P.tone*40;lp.connect(g);saws(t,[262,311,392].map(x=>x*pm),[-8,8],.3*dm+.05,lp,.3);env(g,t,.8,.25*dm)}
  else if(sound==='pluck'){const lp=ac.createBiquadFilter();lp.type='lowpass';lp.Q.value=4;lp.frequency.setValueAtTime(5000,t);lp.frequency.exponentialRampToValueAtTime(400,t+.15*dm+.01);lp.connect(g);saws(t,[523*pm],[-6,6],.4*dm+.05,lp,.38);env(g,t,.8,.35*dm)}
  else if(sound==='supersaw'){const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=6000;lp.connect(g);saws(t,[262*pm],[-30,-18,-8,0,8,18,30],.7*dm+.05,lp,.17);env(g,t,.7,.6*dm)}
@@ -373,8 +393,14 @@ function trigger(seg,t,P,r){if(seg.sound==='none')return;if(Math.random()*100>=P
 
 var playing=false;let nextT=0,G=0,timer=null,hits=[];
 function stepDur(){return 60/LIVE.bpm/LIVE.div}
-function stepAt(t,g){const sp=LIVE.spin;if(sp&&sp.on){const per=LIVE.div*4*Math.max(1,sp.every|0);if(g%per===0)spinFire(t)}
+function stepAt(t,g){const ty=LIVE.toys;if(ty)TOYS.forEach(x=>{const ev=ty[x.id]|0;if(ev>0&&g%(LIVE.div*4*ev)===0)toyFire(x.id,t)});
+const sp=LIVE.spin;if(sp&&sp.on){const per=LIVE.div*4*Math.max(1,sp.every|0);if(g%per===0)spinFire(t)}
 LIVE.rows.forEach((rw,r)=>{const seg=rw.segs[g%rw.len],P=params(seg);if(!rw.mute)trigger(seg,t,P,r);seg.pos=((seg.pos+Math.round(P.advance))%seg.notches+seg.notches)%seg.notches})}
+const TOYS=[{id:'spark',name:'Spark gun',era:'Early 80s friction spark',svg:`<svg viewBox="0 0 220 120"><rect x="40" y="38" width="120" height="34" rx="14" fill="#adb5bd" stroke="#495057" stroke-width="3"/><rect x="150" y="46" width="52" height="18" rx="6" fill="#ced4da" stroke="#495057" stroke-width="3"/><path d="M70 72 L58 112 L84 112 L94 72Z" fill="#868e96" stroke="#495057" stroke-width="3"/><path d="M100 72 Q104 92 92 94" fill="none" stroke="#495057" stroke-width="3"/><path d="M60 38 L48 16 L74 38Z M110 38 L104 18 L126 38Z" fill="#868e96" stroke="#495057" stroke-width="3"/><rect x="92" y="44" width="40" height="22" rx="5" fill="#fff9db" stroke="#495057" stroke-width="2"/><g class="fx"><path d="M98 55 l6 -6 l3 8 l6 -9 l3 7 l7 -5" fill="none" stroke="#f59f00" stroke-width="3"/><circle cx="112" cy="55" r="9" fill="#ffd43b" opacity=".6"/><path d="M204 55 l12 -6 M204 55 l14 2 M204 55 l10 9" stroke="#f59f00" stroke-width="3"/></g></svg>`},
+ {id:'laser',name:'Laser gun',era:'Mid 90s chip sound',svg:`<svg viewBox="0 0 220 120"><rect x="34" y="34" width="130" height="38" rx="8" fill="#ff922b" stroke="#c85d0a" stroke-width="3"/><rect x="160" y="42" width="30" height="22" rx="4" fill="#94d82d" stroke="#5c940d" stroke-width="3"/><circle cx="196" cy="53" r="7" fill="#fa5252" stroke="#c92a2a" stroke-width="2"/><path d="M62 72 L52 114 L80 114 L88 72Z" fill="#94d82d" stroke="#5c940d" stroke-width="3"/><path d="M96 72 Q100 92 88 94" fill="none" stroke="#c85d0a" stroke-width="3"/><rect x="60" y="42" width="60" height="10" rx="4" fill="#fff4e6"/><circle cx="134" cy="47" r="4" fill="#fff"/><circle cx="146" cy="47" r="4" fill="#fff"/><g class="fx"><circle cx="196" cy="53" r="11" fill="#ff8787" opacity=".7"/><rect x="204" y="50" width="16" height="6" rx="3" fill="#ff6b6b"/></g></svg>`}];
+const toyQ=[];
+function toyFire(id,t){const x=TOYS.find(q=>q.id===id);if(!x)return;const P=params(sg(id));trigger({sound:id},t,P,-1);if(!OFF)toyQ.push({t,id})}
+function renderToys(){if(!S.toys)S.toys=toyDef();const el=document.getElementById('toys');el.innerHTML=`<div class="row"><span class="ttl">Toy box</span><button class="info" data-topic="toys">i</button></div><div class="toygrid">${TOYS.map(x=>`<div class="toy" data-toy="${x.id}"><div class="tsvg" data-fire="${x.id}">${x.svg}</div><div class="tname">${x.name}</div><div class="tera">${x.era}</div><div class="row" style="justify-content:center"><button class="go" data-fire="${x.id}">Fire</button><label>Every <input type="number" min="0" max="100" data-every="${x.id}" value="${S.toys[x.id]|0}"> bars</label></div></div>`).join('')}</div>`}
 let spinQ=[],spinAng=0,anim=null;
 function spinFire(t){const sp=LIVE.spin;let i;if(sp.mode==='same')i=+sp.animal||0;else if(sp.mode==='order'){sp.idx=(sp.idx+1)%8;i=sp.idx}else i=Math.floor(Math.random()*8);
  const nm=ANIMALS[i][0],snd=ANIMALS[i][1],narr=sp.narr&&!OFF&&('speechSynthesis' in window),delay=narr?.85:0;
@@ -428,7 +454,7 @@ function renderSpin(){const sp=S.spin,el=document.getElementById('spin');
  <div class="row"><label>Mode <select id="spmode">${opts([['random','Random'],['order','In order'],['same','Same animal']],sp.mode)}</select></label>${sp.mode==='same'?`<select id="spani">${opts(ANIMALS.map((a,i)=>[String(i),a[0]]),String(sp.animal))}</select>`:''}</div>
  <div class="row"><label>Every <input id="spev" type="number" min="1" max="100" value="${sp.every}"> bars</label><label>Repeats <input id="sprep" type="number" min="1" max="8" value="${sp.reps}"></label></div>
  <div class="row"><label>Volume <input id="spvol" type="number" min="0" max="150" value="${sp.vol}"></label><button id="spnar">${sp.narr?'Narrator on':'Narrator off'}</button></div>`}
-function refreshAll(){renderQueue();renderEd();renderSpin();save()}
+function refreshAll(){renderQueue();renderEd();renderSpin();renderToys();save()}
 Q.addEventListener('click',e=>{const h=e.target.closest('.rh');if(h){openPick(+h.dataset.r);return}const b=e.target.closest('.blk');if(b){sel={r:+b.dataset.r,i:+b.dataset.i};renderQueue();renderEd()}});
 function cur(){fixSel();return S.rows[sel.r].segs[sel.i]}
 function edit(e){const t=e.target,s=cur(),rw=S.rows[sel.r];
@@ -467,7 +493,7 @@ bnB.onclick=async()=>{if(bnB.disabled)return;initAudio();if(playing)stop();const
   LIVE=clone(S);G0=0;const sd=stepDur();let g=0;for(let t=.05;t<secs;t+=sd){stepAt(t,g);g++}
   const buf=await oc.startRendering();wavOut([buf.getChannelData(0)],[buf.getChannelData(1)],sr)}
  catch(e){alert('Bounce failed: '+e.message)}
- ac=live.ac;master=live.master;conv=live.conv;OFF=false;lastGroup.length=0;S=JSON.parse(keep);LIVE=S;bnB.disabled=false;bnB.textContent='Bounce';renderQueue();renderEd();renderSpin()};
+ ac=live.ac;master=live.master;conv=live.conv;OFF=false;lastGroup.length=0;S=JSON.parse(keep);LIVE=S;bnB.disabled=false;bnB.textContent='Bounce';renderQueue();renderEd();renderSpin();renderToys()};
 const QLAB={0:'step',0.25:'beat',1:'bar',2:'2 bars',4:'4 bars'},qnI=document.getElementById('qn'),qst=document.getElementById('qst');qnI.value=String(QN);qnI.onchange=()=>{QN=+qnI.value;try{localStorage.setItem('dialqueueQ',String(QN))}catch(e){}};
 const bpmI=document.getElementById('bpm'),divI=document.getElementById('div'),preI=document.getElementById('pre');
 const PGROUP={'Drum and bass':['Breakneck','Liquid steel','Neuro grit','Jungle tiles','Rollers','Halftime zoo','Tin rain','Prism'],EDM:['House','Peak techno','Acid line','Trance gate','Big room','Dubstep','Future bass','UK garage','Hardstyle','Trap'],Textures:[]};
@@ -491,15 +517,17 @@ function frame(){let h=null,fr=0,now=0;
  E.querySelectorAll('.lane').forEach(ln=>{const l=cur().lanes[+ln.dataset.l];if(l){const tx=`now ${Math.round(laneValue(l,s.pos,s.notches))}${FX[l.fx].u}`,el=ln.querySelector('.now');if(el.textContent!==tx)el.textContent=tx}});
  if(ac){while(spinQ.length&&spinQ[0].t<=ac.currentTime){const q=spinQ.shift();anim={from:spinAng,to:Math.ceil(spinAng/360)*360+720+q.i*45,st:performance.now()}}}
  if(anim){const p=Math.min(1,(performance.now()-anim.st)/900),e2=1-Math.pow(1-p,3);spinAng=anim.from+(anim.to-anim.from)*e2;const ar=document.getElementById('arrow'),lv=document.getElementById('lever');if(ar)ar.setAttribute('transform',`rotate(${spinAng%360} 135 130)`);if(lv)lv.setAttribute('transform',`translate(0 ${(Math.sin(Math.min(1,p*3)*Math.PI)*110).toFixed(1)})`);if(p>=1){anim=null;spinAng%=360}}
+ if(ac){while(toyQ.length&&toyQ[0].t<=ac.currentTime){const q=toyQ.shift();const el=document.querySelector(`.tsvg[data-fire="${q.id}"]`);if(el){el.classList.add('on');clearTimeout(el._tm);el._tm=setTimeout(()=>el.classList.remove('on'),q.id==='spark'?520:320)}}}
  if(recording)recB.textContent=`Stop rec ${Math.floor((Date.now()-recStart)/1000)}s`;
  requestAnimationFrame(frame)}
 const INFO={
 top:['Top controls',['Play starts and stops the pattern.','Rec records everything you hear. Tap it again to stop, and it saves a WAV file to your phone. It starts playback if nothing is playing.','Bounce builds the pattern offline, faster than it plays, and saves a WAV file of the length you pick. It never stutters, even on the heaviest patterns. The wheels go back to where they were afterward.','Launch sets when changes drop in while playing. Every change you make, from a new preset to one notch or one effect value, waits in a queue and lands together on the next step, beat, bar, 2 bars or 4 bars, so the groove never breaks. The orange note next to it shows when something is waiting. When stopped, changes apply right away.','BPM sets the tempo, from 40 to 300.','Step sets how long each block lasts: a quarter, eighth or sixteenth note.','Preset loads a ready-made pattern. The menu shows which one is loaded. Custom means you started from Clear.','The menu button holds Save, your saved presets, Reset wheels and Clear. Save keeps the whole beat on this phone under the name you type. Load drops it in on the next launch point. Reset wheels turns every wheel back to notch 1. Clear empties everything down to one blank row.']],
+toys:['Toy box',['Each toy brings back the sound of a real kind of toy from its era. Tap the toy or Fire to set it off.','The spark gun is the early 80s kind, where pulling the trigger spun a flint wheel against a ratchet inside a tin body, so you hear rapid clicks, crackling sparks and the tin ringing.','The laser gun is the mid 90s kind, with a chip and a tiny speaker playing a stored pew: a square wave diving in pitch with a fast warble, crunched down like a cheap speaker.','Every fires the toy on its own every so many bars while the beat plays. 0 turns that off.','Both sounds also live in the Toys family, so any block can use them with all the wheel assignments.']],
 spinner:['Spinner',['Pull the lever or tap Pull, and the arrow spins and lands on an animal. The narrator names it, then the animal answers.','While the pattern plays, the spinner fires on its own every so many bars. Set Every from 1 to 100.','Random picks any animal. In order goes around the wheel. Same animal always lands on the one you choose.','Repeats plays the answer 1 to 8 times in a row. Volume runs 0 to 150.','The animal sounds land in Rec and Bounce. The narrator voice comes from your phone and plays live only.']],
 rows:['Rows',['Each row is a line of blocks with its own red line. All rows play at the same time.','A row can be 1 to 16 blocks long. Rows of different lengths drift apart and line up again later, which keeps the pattern changing.','The wheel in each block shows its current notch out of its total. The color shows which sound is in the block.','Tap any block to edit it below. Add row adds up to 6 rows.','The colored bar on the left of each row shows its instrument family. Tap it to load a row preset: pick a family across the top, then a pattern. Only that row changes.']],
 block:['Block and row settings',['Notches sets how many positions the wheel has, from 1 to 360.','Each time the red line crosses the block, it plays at the current notch, then the wheel turns. It turns 1 notch unless an advance assignment says otherwise.','Notch back, Notch forward and To notch 1 move the wheel by hand.','Row length, Choke, Mute row and Remove row change the whole row. Choke makes each new hit in the row stop the one before it, which sharpens the gaps.']],
 assign:['Assignments',['Each assignment ties one setting to the wheel. A block can have as many as you want.','Step list cycles your values one per notch, like 10,20,30,40. Ramp moves from From to To across all the notches. Up and down climbs then falls. Smooth wave follows a curve. Random repeat picks values that repeat every cycle. Follow wheel reads another block\'s wheel position, so one wheel steers another.','Echo, room, tremolo, filter and drive run 0 to 100. Room is a short reverb. Spread scatters each repeat across left and right. Tremrate is 1 to 30 Hz. Reso is 0 to 30. Pitch is -24 to 24 semitones. Volume is 0 to 150. Pan is -100 to 100. Decay is 10 to 400.','Tone sets how bright struck materials ring. Gate cuts each hit after that many milliseconds. Chance is the odds the block plays at all. Advance sets how many notches the wheel turns per pass, and 0 freezes it.','Ratchet repeats a hit up to 16 times inside the span, measured in steps. Accel above 0 squeezes the repeats together like a bouncing ball, and below 0 spreads them out. Fall lowers each repeat. Rpitch shifts each repeat in semitones.']],
-sounds:['Sounds',['The first menu picks a family. The second picks the instrument inside it. Empty clears the block.','808 holds the drum machine voices. Glass, Wood, Metal and Ceramic are struck materials, each ringing with its own set of overtones. Bass holds low voices, including wobble, whose speed follows the tremrate assignment. Reed holds breathy wind voices. Synth holds stab, pluck, supersaw, acid and chord for EDM leads and pads. FX holds zaps, pings and sweeps. Animal holds moo, meow, bark, yip, quack, oink, baa, chirp and ribbit, all built from scratch like the rest.','Each family has its own color, and each instrument is a shade of it.','__legend__']]};
+sounds:['Sounds',['The first menu picks a family. The second picks the instrument inside it. Empty clears the block.','808 holds the drum machine voices. Glass, Wood, Metal and Ceramic are struck materials, each ringing with its own set of overtones. Bass holds low voices, including wobble, whose speed follows the tremrate assignment. Reed holds breathy wind voices. Synth holds stab, pluck, supersaw, acid and chord for EDM leads and pads. Toys holds the spark gun and laser gun. FX holds zaps, pings and sweeps. Animal holds moo, meow, bark, yip, quack, oink, baa, chirp and ribbit, all built from scratch like the rest.','Each family has its own color, and each instrument is a shade of it.','__legend__']]};
 function legend(){return Object.entries(FAM).map(([f,l])=>`<span style="color:${FAMCOL[f]};font-weight:700">${f}</span>`+l.map(x=>`<span class="dot" style="background:${COL[x]}"></span>${x}`).join(' ')).join('<br>')}
 const RP=document.getElementById('rowpick');let rpRow=0,rpFam='808';
 function openPick(r){rpRow=r;const f=rowFam(S.rows[r]);rpFam=f==='Empty'?'808':f;drawPick();RP.hidden=false}
@@ -517,13 +545,16 @@ document.getElementById('burger').onclick=()=>{drawSaved();MENU.hidden=false};
 MENU.addEventListener('click',e=>{const t=e.target;if(t===MENU||t.id==='mclose'){MENU.hidden=true;return}
  if(t.id==='rst'||t.id==='clr'){MENU.hidden=true;return}
  if(t.id==='svbtn'){const n=document.getElementById('svname').value.trim();if(!n)return;const sv=loadSaved();sv[n]=clone(S);try{localStorage.setItem('dialqueueSaved',JSON.stringify(sv))}catch(err){}document.getElementById('svname').value='';drawSaved();return}
- if(t.dataset.load){const sv=loadSaved(),k=decodeURIComponent(t.dataset.load);if(sv[k]){S=clone(sv[k]);S.preset='';if(!S.spin)S.spin=spinDef();preI.value='';bpmI.value=S.bpm;divI.value=S.div;sel={r:0,i:0};rebase=true;MENU.hidden=true;refreshAll()}return}
+ if(t.dataset.load){const sv=loadSaved(),k=decodeURIComponent(t.dataset.load);if(sv[k]){S=clone(sv[k]);S.preset='';if(!S.spin)S.spin=spinDef();if(!S.toys)S.toys={spark:0,laser:0};preI.value='';bpmI.value=S.bpm;divI.value=S.div;sel={r:0,i:0};rebase=true;MENU.hidden=true;refreshAll()}return}
  if(t.dataset.del){const sv=loadSaved();delete sv[decodeURIComponent(t.dataset.del)];try{localStorage.setItem('dialqueueSaved',JSON.stringify(sv))}catch(err){}drawSaved()}},true);
 const IB=document.getElementById('infobox'),IT=document.getElementById('itxt');
 document.addEventListener('click',e=>{const b=e.target.closest('.info');if(!b)return;e.stopPropagation();const [t,ps]=INFO[b.dataset.topic];IT.innerHTML=`<span class="ttl">${t}</span>`+ps.map(p=>`<p>${p==='__legend__'?legend():p}</p>`).join('');IB.hidden=false},true);
 document.getElementById('iclose').onclick=()=>{IB.hidden=true};
 IB.addEventListener('click',e=>{if(e.target===IB)IB.hidden=true});
-renderQueue();renderEd();renderSpin();requestAnimationFrame(frame);
+const TB=document.getElementById('toys');
+TB.addEventListener('click',e=>{const f=e.target.closest('[data-fire]');if(!f)return;initAudio();ac.resume();toyFire(f.dataset.fire,ac.currentTime+.02)});
+TB.addEventListener('input',e=>{const t=e.target;if(!t.dataset.every)return;const v=parseInt(t.value);if(v>=0&&v<=100){S.toys[t.dataset.every]=v;save()}});
+renderQueue();renderEd();renderSpin();renderToys();requestAnimationFrame(frame);
 </script>
 </body>
 </html>
